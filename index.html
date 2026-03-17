@@ -373,7 +373,8 @@ async function saveBooking(key,data){
     SlotKey:key,
     Status:'Confirmed',
   };
-  const resp=await proxyPost(fields);
+  console.log("Booking payload:", fields);
+const resp = await proxyPost(fields);
   return resp.id;
 }
 
