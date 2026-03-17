@@ -329,7 +329,7 @@ async function proxyGet(params={}) {
 async function proxyPost(fields){
   const r=await fetch(PROXY,{
     method:'POST',
-    headers:{'Content-Type':'text/plain'},
+    headers:{'Content-Type':'application/json'},
     body:JSON.stringify({fields})
   });
   const text=await r.text();
