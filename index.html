@@ -304,15 +304,27 @@ async function proxyGet(params={}){
   }
   const qs=parts.join('&');
   const r=await fetch(`${PROXY}${qs?'?'+qs:''}`,{method:'GET'});
-  const data=await r.json();
-  if(data.records) return data;
-  return {records:[]};
+  const text=await r.text();
+  try{
+    const data=JSON.parse(text);
+    if(data.records) return data;
+    return {records:[]};
+  }catch(e){
+    console.log('GET parse error:',text.slice(0,200));
+    return {records:[]};
+  }
 }
 async function proxyPost(fields){
   const r=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
-  const data=await r.json();
-  if(data.id) return data;
-  throw new Error(data.error?.message||'Error al guardar');
+  const text=await r.text();
+  try{
+    const data=JSON.parse(text);
+    if(data.id) return data;
+    throw new Error(data.error?.message||'Error al guardar');
+  }catch(e){
+    if(e.message==='Error al guardar') throw e;
+    throw new Error('Respuesta inválida del servidor');
+  }
 }
 async function proxyPatch(id,fields){
   const r=await fetch(`${PROXY}?id=${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
@@ -373,8 +385,7 @@ async function saveBooking(key,data){
     SlotKey:key,
     Status:'Confirmed',
   };
-  console.log("Booking payload:", fields);
-const resp = await proxyPost(fields);
+  const resp=await proxyPost(fields);
   return resp.id;
 }
 
