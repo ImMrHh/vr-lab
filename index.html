@@ -297,7 +297,19 @@ function showStatus(msg,type='ok'){
 }
 function hideStatus(){document.getElementById('status-bar').classList.add('hidden');}
 
-async function proxyGet(params={}){
+async function proxyGetUrl(url){
+  const r=await fetch(url,{method:'GET'});
+  const text=await r.text();
+  try{
+    const data=JSON.parse(text);
+    if(data.records) return data;
+    return {records:[]};
+  }catch(e){
+    console.log('GET parse error:',text.slice(0,200));
+    return {records:[]};
+  }
+}
+async function proxyGet(params={}) {
   const parts=[];
   for(const[k,v] of Object.entries(params)){
     parts.push(k+'='+v);
@@ -315,7 +327,11 @@ async function proxyGet(params={}){
   }
 }
 async function proxyPost(fields){
-  const r=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
+  const r=await fetch(PROXY,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({fields})
+  });
   const text=await r.text();
   try{
     const data=JSON.parse(text);
@@ -323,6 +339,7 @@ async function proxyPost(fields){
     throw new Error(data.error?.message||'Error al guardar');
   }catch(e){
     if(e.message==='Error al guardar') throw e;
+    console.log('POST error:',text.slice(0,200));
     throw new Error('Respuesta inválida del servidor');
   }
 }
@@ -336,9 +353,9 @@ async function loadBookings(){
   bookings={};mBlocked={};
   let offset='',all=[];
   do{
-    const params={"filterByFormula":encodeURIComponent("NOT({Status}='Cancelled')"),pageSize:'100'};
-    if(offset)params.offset=offset;
-    const raw=await proxyGet(params);
+    const formula=encodeURIComponent("NOT({Status}='Cancelled')");
+    const url=`${PROXY}?filterByFormula=${formula}&pageSize=100${offset?'&offset='+offset:''}`;
+    const raw=await proxyGetUrl(url);
     console.log('RAW RESPONSE:', JSON.stringify(raw).slice(0,500));
     const data=raw.records ? raw : (raw.$return_value || raw);
     console.log('RECORDS FOUND:', (data.records||[]).length);
