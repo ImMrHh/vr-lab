@@ -298,7 +298,11 @@ function showStatus(msg,type='ok'){
 function hideStatus(){document.getElementById('status-bar').classList.add('hidden');}
 
 async function proxyGet(params={}){
-  const qs=new URLSearchParams(params).toString();
+  const parts=[];
+  for(const[k,v] of Object.entries(params)){
+    parts.push(k+'='+v);
+  }
+  const qs=parts.join('&');
   const r=await fetch(`${PROXY}${qs?'?'+qs:''}`,{method:'GET'});
   const data=await r.json();
   if(data.records) return data;
@@ -320,11 +324,12 @@ async function loadBookings(){
   bookings={};mBlocked={};
   let offset='',all=[];
   do{
-    const params={"filterByFormula":"NOT({Status}='Cancelled')",pageSize:'100'};
+    const params={"filterByFormula":encodeURIComponent("NOT({Status}='Cancelled')"),pageSize:'100'};
     if(offset)params.offset=offset;
     const raw=await proxyGet(params);
-    // Pipedream may nest response under $return_value
+    console.log('RAW RESPONSE:', JSON.stringify(raw).slice(0,500));
     const data=raw.records ? raw : (raw.$return_value || raw);
+    console.log('RECORDS FOUND:', (data.records||[]).length);
     all=[...all,...(data.records||[])];
     offset=data.offset||'';
   }while(offset);
