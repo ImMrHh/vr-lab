@@ -265,7 +265,7 @@ const ROWS  = [
   {type:'period',label:'P7',time:'1:10–2:00'},
   {type:'period',label:'P8',time:'2:00–2:50'},
 ];
-const TEACHING = {0:['P1','P6','P8'],1:['P1','P2','P6','P7'],2:['P1','P6','P8'],3:['P6'],4:['P1','P2','P3','P7']};
+const TEACHING = {0:['P1','P6','P8'],1:['P1','P2','P6','P7'],2:['P1','P6','P8'],3:['P6'],4:['P1','P2','P3','P7','P8']};
 const HOLIDAYS = new Set([
   '2025-09-01','2025-09-12','2025-10-30','2025-12-12',
   '2026-01-01','2026-01-02','2026-02-02',
@@ -300,23 +300,19 @@ function hideStatus(){document.getElementById('status-bar').classList.add('hidde
 async function proxyGet(params={}){
   const qs=new URLSearchParams(params).toString();
   const r=await fetch(`${PROXY}${qs?'?'+qs:''}`,{method:'GET'});
-  if(!r.ok)throw new Error('Error '+r.status);
   const data=await r.json();
-  if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
-  return data;
+  if(data.records) return data;
+  return {records:[]};
 }
 async function proxyPost(fields){
   const r=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
-  if(!r.ok)throw new Error('Error '+r.status);
   const data=await r.json();
-  if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
-  return data;
+  if(data.id) return data;
+  throw new Error(data.error?.message||'Error al guardar');
 }
 async function proxyPatch(id,fields){
   const r=await fetch(`${PROXY}?id=${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
-  if(!r.ok)throw new Error('Error '+r.status);
   const data=await r.json();
-  if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
   return data;
 }
 
@@ -326,7 +322,9 @@ async function loadBookings(){
   do{
     const params={"filterByFormula":"NOT({Status}='Cancelled')",pageSize:'100'};
     if(offset)params.offset=offset;
-    const data=await proxyGet(params);
+    const raw=await proxyGet(params);
+    // Pipedream may nest response under $return_value
+    const data=raw.records ? raw : (raw.$return_value || raw);
     all=[...all,...(data.records||[])];
     offset=data.offset||'';
   }while(offset);
