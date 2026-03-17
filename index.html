@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VR Lab Booking · CUAM</title>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --green: #1D9E75;
+    --green-light: #E1F5EE;
+    --green-mid: #5DCAA5;
+    --green-dark: #0F6E56;
+    --purple-light: #EEF2FF;
+    --purple-mid: #AFA9EC;
+    --purple-text: #534AB7;
+    --gray-50: #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-400: #9CA3AF;
+    --gray-600: #4B5563;
+    --gray-800: #1F2937;
+    --danger: #DC2626;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #F0F4F8;
+    color: var(--gray-800);
+    min-height: 100vh;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background: white;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .topbar-icon {
+    width: 32px; height: 32px;
+    background: var(--green);
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 16px;
+  }
+  .topbar-title { font-size: 15px; font-weight: 600; color: var(--gray-800); }
+  .topbar-sub { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .badge-admin {
+    font-size: 11px; font-weight: 600;
+    background: var(--green-light); color: var(--green-dark);
+    padding: 3px 10px; border-radius: 20px;
+    letter-spacing: 0.04em;
+  }
+  .btn { 
+    padding: 7px 14px; border-radius: var(--radius-sm);
+    border: 1px solid var(--gray-200); background: white;
+    font-size: 13px; font-weight: 500; color: var(--gray-600);
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: var(--gray-50); border-color: var(--gray-400); }
+  .btn-primary {
+    background: var(--green); color: white;
+    border-color: var(--green);
+  }
+  .btn-primary:hover { background: var(--green-dark); border-color: var(--green-dark); }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
+
+  /* ── CARD ── */
+  .card {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--gray-200);
+    box-shadow: var(--shadow);
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+
+  /* ── AUTH SCREEN ── */
+  #auth-screen {
+    min-height: calc(100vh - 56px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .auth-card {
+    background: white; border-radius: 16px;
+    border: 1px solid var(--gray-200);
+    box-shadow: var(--shadow-md);
+    padding: 40px; width: 360px; text-align: center;
+  }
+  .auth-icon {
+    width: 56px; height: 56px; background: var(--green-light);
+    border-radius: 14px; display: flex; align-items: center;
+    justify-content: center; margin: 0 auto 20px; font-size: 26px;
+  }
+  .auth-card h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+  .auth-card p { font-size: 14px; color: var(--gray-400); margin-bottom: 24px; line-height: 1.5; }
+  .ms-btn {
+    width: 100%; padding: 12px; border-radius: var(--radius-sm);
+    border: 1px solid var(--gray-200); background: white;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; color: var(--gray-800);
+    transition: all 0.15s; box-shadow: var(--shadow);
+  }
+  .ms-btn:hover { background: var(--gray-50); box-shadow: var(--shadow-md); }
+
+  /* ── PIN SCREEN ── */
+  #pin-screen {
+    min-height: calc(100vh - 56px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pin-card {
+    background: white; border-radius: 16px;
+    border: 1px solid var(--gray-200);
+    box-shadow: var(--shadow-md);
+    padding: 36px 32px; width: 300px; text-align: center;
+  }
+  .pin-card h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .pin-card p { font-size: 13px; color: var(--gray-400); margin-bottom: 24px; }
+  .pin-dots { display: flex; gap: 14px; justify-content: center; margin-bottom: 28px; }
+  .pin-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--gray-200); background: white;
+    transition: all 0.15s;
+  }
+  .pin-dot.filled { background: var(--green); border-color: var(--green); }
+  .pin-dot.error { background: var(--danger); border-color: var(--danger); }
+  .pin-keypad { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .pin-key {
+    height: 50px; border-radius: var(--radius-sm);
+    border: 1px solid var(--gray-200); background: white;
+    font-size: 18px; font-weight: 500; cursor: pointer;
+    font-family: 'DM Mono', monospace; color: var(--gray-800);
+    transition: all 0.1s;
+  }
+  .pin-key:hover { background: var(--gray-50); }
+  .pin-key:active { transform: scale(0.96); }
+  .pin-key.del { font-size: 14px; font-family: 'DM Sans', sans-serif; color: var(--gray-400); }
+  .pin-key.empty { visibility: hidden; }
+  .pin-error { font-size: 12px; color: var(--danger); margin-top: 14px; height: 16px; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)}
+    20%{transform:translateX(-8px)}
+    40%{transform:translateX(8px)}
+    60%{transform:translateX(-5px)}
+    80%{transform:translateX(5px)}
+  }
+  .shake { animation: shake 0.4s ease; }
+
+  /* ── WEEK NAV ── */
+  .week-nav {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  }
+  .week-nav-label {
+    flex: 1; text-align: center;
+    font-size: 14px; font-weight: 600; color: var(--gray-800);
+  }
+
+  /* ── GRID ── */
+  .grid-wrap { overflow-x: auto; }
+  .grid {
+    display: grid;
+    grid-template-columns: 70px repeat(5, minmax(0,1fr));
+    gap: 3px;
+    min-width: 520px;
+  }
+  .col-head {
+    font-size: 12px; font-weight: 600; text-align: center;
+    padding: 6px 4px 10px; color: var(--gray-400);
+  }
+  .col-head.today { color: var(--green); }
+  .col-head.holiday { color: var(--danger); }
+  .col-head .date { font-size: 10px; font-weight: 400; margin-top: 2px; }
+  .period-label {
+    font-size: 10px; color: var(--gray-400);
+    display: flex; flex-direction: column;
+    align-items: flex-end; justify-content: center;
+    padding-right: 8px; height: 46px; line-height: 1.4;
+  }
+  .period-label .ptime { font-size: 9px; opacity: 0.7; }
+  .recess-label {
+    height: 18px; display: flex;
+    align-items: center; justify-content: flex-end;
+    padding-right: 8px;
+    font-size: 9px; color: var(--gray-400); opacity: 0.5;
+  }
+
+  /* ── SLOTS ── */
+  .slot {
+    height: 46px; border-radius: var(--radius-sm);
+    border: 1px solid var(--gray-200);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+    transition: all 0.12s;
+  }
+  .slot-recess { height: 18px; border: none; background: transparent; }
+  .slot-free { background: white; cursor: default; }
+  .slot-free.admin { cursor: pointer; }
+  .slot-free.admin:hover { background: var(--green-light); border-color: var(--green); }
+  .slot-booked { background: var(--green-light); border-color: #9FE1CB; }
+  .slot-booked.admin { cursor: pointer; }
+  .slot-booked.admin:hover { border-color: var(--green); }
+  .slot-teaching { background: var(--purple-light); border-color: var(--purple-mid); cursor: not-allowed; }
+  .slot-blocked { background: var(--gray-100); border-color: var(--gray-200); }
+  .slot-blocked.admin { cursor: pointer; }
+  .slot-blocked.admin:hover { background: var(--gray-200); }
+  .slot-holiday { background: var(--gray-100); border-color: var(--gray-200); opacity: 0.4; cursor: not-allowed; }
+  .slot-past { background: var(--gray-50); opacity: 0.35; cursor: not-allowed; }
+  .slot-loading { background: var(--gray-50); border-style: dashed; cursor: not-allowed; }
+
+  .slot-text { font-size: 10px; font-weight: 600; text-align: center; padding: 0 3px; line-height: 1.25; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 100%; }
+  .slot-sub { font-size: 9px; font-weight: 400; text-align: center; padding: 0 3px; line-height: 1.2; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 100%; margin-top: 1px; }
+  .slot-booked .slot-text { color: var(--green-dark); }
+  .slot-booked .slot-sub { color: var(--green-mid); }
+  .slot-teaching .slot-text { color: var(--purple-text); }
+  .slot-blocked .slot-text { color: var(--gray-400); }
+
+  /* ── LEGEND ── */
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--gray-400); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; border: 1px solid var(--gray-200); }
+
+  /* ── MODAL ── */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200;
+  }
+  .modal {
+    background: white; border-radius: 14px;
+    box-shadow: var(--shadow-md);
+    padding: 24px; width: 320px; max-width: 92vw;
+  }
+  .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .modal .modal-sub { font-size: 12px; color: var(--gray-400); margin-bottom: 18px; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { font-size: 12px; color: var(--gray-600); display: block; margin-bottom: 4px; font-weight: 500; }
+  .form-group input, .form-group select {
+    width: 100%; border: 1px solid var(--gray-200);
+    border-radius: var(--radius-sm); padding: 8px 10px;
+    font-size: 13px; color: var(--gray-800);
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus {
+    outline: none; border-color: var(--green);
+  }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+  /* ── LIST VIEW ── */
+  .booking-row {
+    background: white; border: 1px solid var(--gray-200);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .booking-name { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+  .booking-meta { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+  .booking-confirmed {
+    font-size: 10px; font-weight: 600;
+    background: var(--green-light); color: var(--green-dark);
+    padding: 2px 8px; border-radius: 20px;
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--gray-800); color: white;
+    padding: 10px 20px; border-radius: 8px;
+    font-size: 13px; font-weight: 500;
+    box-shadow: var(--shadow-md);
+    opacity: 0; transition: opacity 0.25s;
+    pointer-events: none; white-space: nowrap; z-index: 300;
+  }
+  .toast.show { opacity: 1; }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--danger); }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    background: var(--green-light); border: 1px solid #9FE1CB;
+    border-radius: var(--radius-sm); padding: 8px 14px;
+    font-size: 12px; color: var(--green-dark); font-weight: 500;
+    display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+  }
+  .status-bar.warning { background: #FEF9C3; border-color: #FDE68A; color: #92400E; }
+  .status-bar.error-bar { background: #FEE2E2; border-color: #FCA5A5; color: #991B1B; }
+
+  /* ── SPINNER ── */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--gray-200);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hidden { display: none !important; }
+  .view-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tab {
+    padding: 6px 14px; border-radius: var(--radius-sm);
+    border: 1px solid var(--gray-200); background: white;
+    font-size: 12px; font-weight: 500; color: var(--gray-400);
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: all 0.12s;
+  }
+  .tab.active { background: var(--gray-800); color: white; border-color: var(--gray-800); }
+
+  .admin-hint {
+    font-size: 11px; color: var(--gray-400); margin-top: 10px;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-icon">⬡</div>
+    <div>
+      <div class="topbar-title">VR Lab</div>
+      <div class="topbar-sub">CUAM · Language Dept</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="badge-admin hidden" id="admin-badge">Admin</span>
+    <button class="btn btn-sm hidden" id="exit-admin-btn" onclick="exitAdmin()">Exit admin</button>
+    <button class="btn btn-sm hidden" id="admin-btn" onclick="showPin()">Admin</button>
+    <button class="btn btn-sm hidden" id="logout-btn" onclick="logout()">Sign out</button>
+  </div>
+</div>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-icon">⬡</div>
+    <h2>VR Lab Booking</h2>
+    <p>Sign in with your CUAM Microsoft 365 account to view and manage VR Lab availability.</p>
+    <button class="ms-btn" onclick="signIn()">
+      <svg width="18" height="18" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
+      Sign in with Microsoft
+    </button>
+    <p id="auth-error" style="font-size:12px;color:var(--danger);margin-top:14px;display:none;"></p>
+  </div>
+</div>
+
+<!-- PIN SCREEN -->
+<div id="pin-screen" class="hidden">
+  <div class="pin-card">
+    <h2>Admin access</h2>
+    <p>Enter your 4-digit PIN to unlock full control</p>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="pin-keypad">
+      <button class="pin-key" onclick="pinPress('1')">1</button>
+      <button class="pin-key" onclick="pinPress('2')">2</button>
+      <button class="pin-key" onclick="pinPress('3')">3</button>
+      <button class="pin-key" onclick="pinPress('4')">4</button>
+      <button class="pin-key" onclick="pinPress('5')">5</button>
+      <button class="pin-key" onclick="pinPress('6')">6</button>
+      <button class="pin-key" onclick="pinPress('7')">7</button>
+      <button class="pin-key" onclick="pinPress('8')">8</button>
+      <button class="pin-key" onclick="pinPress('9')">9</button>
+      <button class="pin-key empty"></button>
+      <button class="pin-key" onclick="pinPress('0')">0</button>
+      <button class="pin-key del" onclick="pinPress('del')">⌫</button>
+    </div>
+    <div class="pin-error" id="pin-error"></div>
+    <button onclick="hidePinScreen()" style="margin-top:16px;font-size:12px;color:var(--gray-400);background:none;border:none;cursor:pointer;text-decoration:underline;font-family:'DM Sans',sans-serif;">Back</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="main-app" class="hidden">
+  <div class="container">
+
+    <!-- Status bar -->
+    <div id="status-bar" class="status-bar hidden"></div>
+
+    <!-- Admin tabs -->
+    <div class="view-tabs hidden" id="view-tabs">
+      <button class="tab active" id="tab-grid" onclick="setView('grid')">Weekly grid</button>
+      <button class="tab" id="tab-list" onclick="setView('list')">All bookings</button>
+    </div>
+
+    <!-- GRID VIEW -->
+    <div id="view-grid">
+      <div class="card" style="padding:16px 20px">
+        <div class="week-nav">
+          <button class="btn btn-sm" onclick="changeWeek(-1)">← Prev</button>
+          <span class="week-nav-label" id="week-label"></span>
+          <button class="btn btn-sm" onclick="changeWeek(1)">Next →</button>
+        </div>
+        <div class="grid-wrap">
+          <div class="grid" id="grid"></div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:white"></div>Available</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border-color:#9FE1CB"></div>Booked</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--purple-light);border-color:var(--purple-mid)"></div>Your class</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--gray-100)"></div>Blocked / holiday</div>
+        </div>
+        <p class="admin-hint hidden" id="admin-hint">Admin: click free slots to book · click booked to cancel · click blocked to unblock</p>
+      </div>
+    </div>
+
+    <!-- LIST VIEW -->
+    <div id="view-list" class="hidden">
+      <div class="card">
+        <div id="bookings-list-container"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- BOOKING MODAL -->
+<div class="modal-bg hidden" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h2 id="modal-title">Book slot</h2>
+    <div class="modal-sub" id="modal-sub"></div>
+    <div class="form-group">
+      <label>Teacher name</label>
+      <input id="f-teacher" type="text" placeholder="e.g. Ms. García"/>
+    </div>
+    <div class="form-group">
+      <label>Subject / group</label>
+      <input id="f-subject" type="text" placeholder="e.g. Biology 3A"/>
+    </div>
+    <div class="form-group">
+      <label>Number of students</label>
+      <input id="f-students" type="number" min="1" max="40" placeholder="e.g. 20"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" style="flex:1" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="confirmBooking()" id="confirm-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────
+const TENANT_ID   = '8cef89d5-ca02-46a1-8397-b9c461acb2e6';
+const SITE_NAME   = 'LanguageDepartmentCEAMCDMX';
+const LIST_NAME   = 'VR Lab Bookings';
+const ADMIN_PIN   = '2026';
+const SITE_HOST   = 'univanglomex.sharepoint.com';
+
+const msalConfig = {
+  auth: {
+    clientId: 'YOUR_CLIENT_ID', // Replace after Azure app registration
+    authority: `https://login.microsoftonline.com/${TENANT_ID}`,
+    redirectUri: window.location.origin + window.location.pathname,
+  },
+  cache: { cacheLocation: 'sessionStorage' }
+};
+
+const loginRequest = {
+  scopes: ['https://graph.microsoft.com/Sites.ReadWrite.All']
+};
+
+const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+// ── SCHEDULE DATA ────────────────────────────────────────────
+const DAYS  = ['Mon','Tue','Wed','Thu','Fri'];
+const FDAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+
+const ROWS = [
+  {type:'period', label:'P1', time:'7:20–8:10'},
+  {type:'period', label:'P2', time:'8:10–9:00'},
+  {type:'period', label:'P3', time:'9:00–9:50'},
+  {type:'recess', label:'Recess1', time:'9:50–10:20'},
+  {type:'period', label:'P4', time:'10:20–11:10'},
+  {type:'period', label:'P5', time:'11:10–12:00'},
+  {type:'period', label:'P6', time:'12:00–12:50'},
+  {type:'recess', label:'Recess2', time:'12:50–1:10'},
+  {type:'period', label:'P7', time:'1:10–2:00'},
+  {type:'period', label:'P8', time:'2:00–2:50'},
+];
+
+const TEACHING = {
+  0: ['P1','P6','P8'],
+  1: ['P1','P2','P6','P7'],
+  2: ['P1','P6','P8'],
+  3: ['P6'],
+  4: ['P1','P2','P3','P7'],
+};
+
+const HOLIDAYS = new Set([
+  '2025-09-01','2025-09-12','2025-10-30','2025-12-12',
+  '2026-01-01','2026-01-02','2026-02-02',
+  ...Array.from({length:19},(_,i)=>{
+    const d=new Date(2025,11,22); d.setDate(d.getDate()+i);
+    return d.toISOString().slice(0,10);
+  }),
+  ...Array.from({length:9},(_,i)=>`2026-04-${String(2+i).padStart(2,'0')}`),
+]);
+
+// ── STATE ────────────────────────────────────────────────────
+let isAdmin   = false;
+let weekOff   = 0;
+let bookings  = {};   // slotKey -> {id, teacher, subject, students, ...}
+let mBlocked  = {};   // slotKey -> SharePoint item id
+let pendingModal = null;
+let pinVal    = '';
+let currentView = 'grid';
+let graphToken  = null;
+let siteId      = null;
+let listId      = null;
+
+// ── HELPERS ──────────────────────────────────────────────────
+function getMonday(off) {
+  const now = new Date(), day = now.getDay();
+  const m = new Date(now);
+  m.setDate(now.getDate() - day + (day===0?-6:1) + off*7);
+  m.setHours(0,0,0,0);
+  return m;
+}
+function getCellDate(wOff, dIdx) {
+  const m = getMonday(wOff), d = new Date(m);
+  d.setDate(d.getDate()+dIdx);
+  return d;
+}
+function dStr(d)  { return d.toISOString().slice(0,10); }
+function fmtDate(wOff, dIdx) {
+  return getCellDate(wOff,dIdx).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
+function slotKey(w,d,p)   { return `${w}_${d}_${p}`; }
+function isToday(wOff,dIdx) {
+  const d=getCellDate(wOff,dIdx), n=new Date(); n.setHours(0,0,0,0);
+  return d.getTime()===n.getTime();
+}
+function isPast(wOff,dIdx,time) {
+  const d=getCellDate(wOff,dIdx);
+  d.setHours(parseInt(time),parseInt(time.split(':')[1]||0),0,0);
+  return d < new Date();
+}
+function isTooFar(wOff,dIdx) {
+  const lim=new Date(); lim.setDate(lim.getDate()+30);
+  return getCellDate(wOff,dIdx)>lim;
+}
+
+// ── TOAST ────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+function showStatus(msg, type='') {
+  const s = document.getElementById('status-bar');
+  s.textContent = msg;
+  s.className = `status-bar ${type==='error'?'error-bar':type==='warn'?'warning':''}`;
+  s.classList.remove('hidden');
+}
+function hideStatus() { document.getElementById('status-bar').classList.add('hidden'); }
+
+// ── AUTH ─────────────────────────────────────────────────────
+async function signIn() {
+  try {
+    const resp = await msalInstance.loginPopup(loginRequest);
+    msalInstance.setActiveAccount(resp.account);
+    await initApp();
+  } catch(e) {
+    const err = document.getElementById('auth-error');
+    err.style.display='block';
+    err.textContent = 'Sign-in failed: ' + (e.message||e);
+  }
+}
+
+async function getToken() {
+  const account = msalInstance.getActiveAccount();
+  if(!account) return null;
+  try {
+    const r = await msalInstance.acquireTokenSilent({...loginRequest, account});
+    return r.accessToken;
+  } catch {
+    const r = await msalInstance.acquireTokenPopup(loginRequest);
+    return r.accessToken;
+  }
+}
+
+function logout() {
+  msalInstance.logoutPopup();
+  location.reload();
+}
+
+// ── GRAPH API ────────────────────────────────────────────────
+async function graphGet(path) {
+  graphToken = await getToken();
+  const r = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    headers: { Authorization: `Bearer ${graphToken}` }
+  });
+  if(!r.ok) throw new Error(`Graph error ${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+async function graphPost(path, body) {
+  graphToken = await getToken();
+  const r = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method:'POST',
+    headers: { Authorization:`Bearer ${graphToken}`, 'Content-Type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error(`Graph error ${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+async function graphPatch(path, body) {
+  graphToken = await getToken();
+  const r = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method:'PATCH',
+    headers: { Authorization:`Bearer ${graphToken}`, 'Content-Type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error(`Graph error ${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+async function graphDelete(path) {
+  graphToken = await getToken();
+  const r = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method:'DELETE',
+    headers: { Authorization:`Bearer ${graphToken}` }
+  });
+  if(!r.ok) throw new Error(`Graph error ${r.status}`);
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+async function initApp() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('main-app').classList.remove('hidden');
+  document.getElementById('admin-btn').classList.remove('hidden');
+  document.getElementById('logout-btn').classList.remove('hidden');
+  showStatus('Connecting to SharePoint…');
+  renderWeekLabel();
+  renderGrid(true);
+
+  try {
+    // Get site ID
+    const siteResp = await graphGet(`/sites/${SITE_HOST}:/sites/${SITE_NAME}`);
+    siteId = siteResp.id;
+    // Get list ID
+    const listsResp = await graphGet(`/sites/${siteId}/lists?$filter=displayName eq '${LIST_NAME}'`);
+    if(!listsResp.value || listsResp.value.length===0) throw new Error('List not found');
+    listId = listsResp.value[0].id;
+    await loadBookings();
+    hideStatus();
+    renderGrid();
+  } catch(e) {
+    showStatus('Could not connect to SharePoint: ' + e.message, 'error');
+    renderGrid();
+  }
+}
+
+// ── LOAD BOOKINGS ────────────────────────────────────────────
+async function loadBookings() {
+  bookings = {};
+  mBlocked = {};
+  const items = await graphGet(
+    `/sites/${siteId}/lists/${listId}/items?expand=fields&$top=500`
+  );
+  for(const item of items.value) {
+    const f = item.fields;
+    if(!f.SlotKey) continue;
+    if(f.Status === 'Blocked') {
+      mBlocked[f.SlotKey] = item.id;
+    } else if(f.Status === 'Confirmed') {
+      bookings[f.SlotKey] = {
+        id: item.id,
+        teacher: f.Title || f.Teacher || '',
+        subject: f.Subject || '',
+        students: f.Students || '',
+        pLabel: f.Period || '',
+        pTime: f.PeriodTime || '',
+        dIdx: f.DayIndex || 0,
+        wOff: f.WeekOffset || 0,
+        bookingDate: f.BookingDate || '',
+      };
+    }
+  }
+}
+
+// ── SAVE BOOKING ─────────────────────────────────────────────
+async function saveBooking(key, data) {
+  const cellDate = getCellDate(data.wOff, data.dIdx);
+  const fields = {
+    Title: data.teacher,
+    Subject: data.subject,
+    Students: parseInt(data.students),
+    Period: data.pLabel,
+    PeriodTime: data.pTime,
+    DayOfWeek: FDAYS[data.dIdx],
+    BookingDate: cellDate.toISOString(),
+    WeekOffset: data.wOff,
+    DayIndex: data.dIdx,
+    SlotKey: key,
+    Status: 'Confirmed',
+  };
+  const resp = await graphPost(`/sites/${siteId}/lists/${listId}/items`, {fields});
+  return resp.id;
+}
+
+async function cancelBookingOnServer(itemId) {
+  await graphPatch(`/sites/${siteId}/lists/${listId}/items/${itemId}`, {
+    fields: { Status: 'Cancelled' }
+  });
+}
+
+async function blockSlot(key, wOff, dIdx, pLabel, pTime) {
+  const cellDate = getCellDate(wOff, dIdx);
+  const fields = {
+    Title: 'Blocked',
+    Subject: 'Blocked',
+    Students: 0,
+    Period: pLabel,
+    PeriodTime: pTime,
+    DayOfWeek: FDAYS[dIdx],
+    BookingDate: cellDate.toISOString(),
+    WeekOffset: wOff,
+    DayIndex: dIdx,
+    SlotKey: key,
+    Status: 'Blocked',
+  };
+  const resp = await graphPost(`/sites/${siteId}/lists/${listId}/items`, {fields});
+  return resp.id;
+}
+
+async function unblockSlot(itemId) {
+  await graphPatch(`/sites/${siteId}/lists/${listId}/items/${itemId}`, {
+    fields: { Status: 'Cancelled' }
+  });
+}
+
+// ── WEEK LABEL ───────────────────────────────────────────────
+function renderWeekLabel() {
+  const m = getMonday(weekOff);
+  const f = new Date(m); f.setDate(f.getDate()+4);
+  document.getElementById('week-label').textContent =
+    m.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + ' – ' +
+    f.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+
+async function changeWeek(dir) {
+  weekOff += dir;
+  renderWeekLabel();
+  renderGrid();
+}
+
+// ── RENDER GRID ───────────────────────────────────────────────
+function renderGrid(loading=false) {
+  const g = document.getElementById('grid');
+  g.innerHTML = '';
+
+  // corner
+  g.appendChild(document.createElement('div'));
+
+  // col headers
+  DAYS.forEach((d,di) => {
+    const cd = getCellDate(weekOff, di);
+    const hol = HOLIDAYS.has(dStr(cd));
+    const today = isToday(weekOff, di);
+    const el = document.createElement('div');
+    el.className = 'col-head' + (today?' today':'') + (hol?' holiday':'');
+    el.innerHTML = `<div>${d}</div><div class="date">${fmtDate(weekOff,di)}${hol?' ✕':''}</div>`;
+    g.appendChild(el);
+  });
+
+  ROWS.forEach(row => {
+    // row label
+    const lbl = document.createElement('div');
+    if(row.type==='recess') {
+      lbl.className='recess-label'; lbl.textContent='break';
+    } else {
+      lbl.className='period-label';
+      lbl.innerHTML=`${row.label}<span class="ptime">${row.time}</span>`;
+    }
+    g.appendChild(lbl);
+
+    DAYS.forEach((_,di) => {
+      const key = slotKey(weekOff,di,row.label);
+      const cd = getCellDate(weekOff,di);
+      const hol = HOLIDAYS.has(dStr(cd));
+      const cell = document.createElement('div');
+
+      if(row.type==='recess') {
+        cell.className='slot slot-recess';
+        g.appendChild(cell); return;
+      }
+
+      if(loading) {
+        cell.className='slot slot-loading';
+        cell.innerHTML='<div class="spinner"></div>';
+        g.appendChild(cell); return;
+      }
+
+      const teaching = (TEACHING[di]||[]).includes(row.label);
+      const past = isPast(weekOff,di,row.time);
+      const far  = isTooFar(weekOff,di);
+      const booked  = bookings[key];
+      const blocked = mBlocked.hasOwnProperty(key);
+
+      if(hol) {
+        cell.className='slot slot-holiday';
+        cell.title='No school';
+      } else if(teaching) {
+        cell.className='slot slot-teaching';
+        cell.innerHTML=`<span class="slot-text">Your class</span>`;
+        cell.title='You are teaching this period';
+      } else if(blocked) {
+        cell.className='slot slot-blocked' + (isAdmin?' admin':'');
+        cell.innerHTML=`<span class="slot-text">Blocked</span>`;
+        cell.title = isAdmin ? 'Click to unblock' : 'Unavailable';
+        if(isAdmin) cell.onclick = () => doUnblock(key);
+      } else if(booked) {
+        const b = booked;
+        cell.className='slot slot-booked' + (isAdmin?' admin':'');
+        cell.innerHTML=`<span class="slot-text">${b.subject}</span><span class="slot-sub">${b.teacher}</span>`;
+        cell.title=`${b.teacher} · ${b.subject} · ${b.students} students${isAdmin?'\nClick to cancel':''}`;
+        if(isAdmin) cell.onclick = () => doCancel(key, b);
+      } else if(past||far) {
+        cell.className='slot slot-past';
+        cell.title = past?'Past slot':'Too far ahead';
+      } else {
+        cell.className='slot slot-free' + (isAdmin?' admin':'');
+        if(isAdmin) {
+          cell.innerHTML=`<span style="font-size:18px;color:var(--gray-200)">+</span>`;
+          cell.onclick = () => openModal(weekOff,di,row.label,row.time,key);
+        }
+      }
+      g.appendChild(cell);
+    });
+  });
+
+  // admin hint
+  document.getElementById('admin-hint').classList.toggle('hidden', !isAdmin);
+}
+
+// ── BOOKING ACTIONS ───────────────────────────────────────────
+function openModal(wOff, dIdx, pLabel, pTime, key) {
+  pendingModal = {wOff, dIdx, pLabel, pTime, key};
+  document.getElementById('modal-title').textContent = `Book ${pLabel}`;
+  document.getElementById('modal-sub').textContent = `${FDAYS[dIdx]}, ${fmtDate(wOff,dIdx)} · ${pTime}`;
+  document.getElementById('f-teacher').value = '';
+  document.getElementById('f-subject').value = '';
+  document.getElementById('f-students').value = '';
+  document.getElementById('modal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('f-teacher').focus(),50);
+}
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+  pendingModal = null;
+}
+
+async function confirmBooking() {
+  const teacher  = document.getElementById('f-teacher').value.trim();
+  const subject  = document.getElementById('f-subject').value.trim();
+  const students = document.getElementById('f-students').value.trim();
+  if(!teacher||!subject||!students) { showToast('Please fill all fields','error'); return; }
+
+  const btn = document.getElementById('confirm-btn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
+
+  const data = {...pendingModal, teacher, subject, students};
+  try {
+    const itemId = listId ? await saveBooking(pendingModal.key, data) : null;
+    bookings[pendingModal.key] = {...data, id: itemId};
+    closeModal();
+    renderGrid();
+    showToast(`Booked! ${teacher} — ${subject}`);
+  } catch(e) {
+    showToast('Save failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled=false; btn.textContent='Confirm';
+  }
+}
+
+async function doCancel(key, b) {
+  if(!confirm(`Cancel booking?\n${b.teacher} — ${b.subject}\n${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${b.pLabel}`)) return;
+  try {
+    if(b.id && listId) await cancelBookingOnServer(b.id);
+    delete bookings[key];
+    renderGrid();
+    if(currentView==='list') renderList();
+    showToast('Booking cancelled');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+async function doUnblock(key) {
+  try {
+    const itemId = mBlocked[key];
+    if(itemId && listId) await unblockSlot(itemId);
+    delete mBlocked[key];
+    renderGrid();
+    showToast('Slot unblocked');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+// ── LIST VIEW ─────────────────────────────────────────────────
+function renderList() {
+  const c = document.getElementById('bookings-list-container');
+  const entries = Object.entries(bookings).sort((a,b)=>{
+    const[w1,d1,p1]=a[0].split('_');
+    const[w2,d2,p2]=b[0].split('_');
+    return(+w1*1000 + +d1*10 + ROWS.findIndex(r=>r.label===p1)) -
+           (+w2*1000 + +d2*10 + ROWS.findIndex(r=>r.label===p2));
+  });
+  if(!entries.length) {
+    c.innerHTML='<p style="font-size:13px;color:var(--gray-400);padding:8px 0">No bookings yet.</p>';
+    return;
+  }
+  c.innerHTML = entries.map(([key,b])=>`
+    <div class="booking-row">
+      <div>
+        <div class="booking-name">${b.teacher} <span style="font-weight:400;color:var(--gray-400)">· ${b.subject}</span></div>
+        <div class="booking-meta">${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${b.pLabel} (${b.pTime}) · ${b.students} students</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="booking-confirmed">Confirmed</span>
+        <button class="btn btn-sm" onclick="doCancel('${key}', bookings['${key}'])">Cancel</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── VIEW TOGGLE ───────────────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  document.getElementById('view-grid').classList.toggle('hidden', v!=='grid');
+  document.getElementById('view-list').classList.toggle('hidden', v!=='list');
+  document.getElementById('tab-grid').classList.toggle('active', v==='grid');
+  document.getElementById('tab-list').classList.toggle('active', v==='list');
+  if(v==='list') renderList();
+}
+
+// ── ADMIN / PIN ───────────────────────────────────────────────
+function showPin() {
+  pinVal='';
+  document.getElementById('pin-error').textContent='';
+  updatePinDots();
+  document.getElementById('pin-screen').classList.remove('hidden');
+  document.getElementById('main-app').classList.add('hidden');
+}
+function hidePinScreen() {
+  document.getElementById('pin-screen').classList.add('hidden');
+  document.getElementById('main-app').classList.remove('hidden');
+}
+function updatePinDots() {
+  for(let i=0;i<4;i++) {
+    document.getElementById('d'+i).className = 'pin-dot' + (i<pinVal.length?' filled':'');
+  }
+}
+function pinPress(v) {
+  if(v==='del') { pinVal=pinVal.slice(0,-1); document.getElementById('pin-error').textContent=''; updatePinDots(); return; }
+  if(pinVal.length>=4) return;
+  pinVal += v;
+  updatePinDots();
+  if(pinVal.length===4) {
+    if(pinVal===ADMIN_PIN) {
+      enterAdmin();
+    } else {
+      document.getElementById('pin-dots').classList.add('shake');
+      for(let i=0;i<4;i++) document.getElementById('d'+i).className='pin-dot error';
+      document.getElementById('pin-error').textContent='Incorrect PIN';
+      setTimeout(()=>{
+        document.getElementById('pin-dots').classList.remove('shake');
+        pinVal=''; updatePinDots();
+      },500);
+    }
+  }
+}
+function enterAdmin() {
+  isAdmin=true;
+  hidePinScreen();
+  document.getElementById('admin-badge').classList.remove('hidden');
+  document.getElementById('exit-admin-btn').classList.remove('hidden');
+  document.getElementById('admin-btn').classList.add('hidden');
+  document.getElementById('view-tabs').classList.remove('hidden');
+  renderGrid();
+}
+function exitAdmin() {
+  isAdmin=false;
+  document.getElementById('admin-badge').classList.add('hidden');
+  document.getElementById('exit-admin-btn').classList.add('hidden');
+  document.getElementById('admin-btn').classList.remove('hidden');
+  document.getElementById('view-tabs').classList.add('hidden');
+  setView('grid');
+  renderGrid();
+}
+
+// ── STARTUP ───────────────────────────────────────────────────
+(async()=>{
+  await msalInstance.initialize();
+  const resp = await msalInstance.handleRedirectPromise();
+  if(resp) msalInstance.setActiveAccount(resp.account);
+  const account = msalInstance.getActiveAccount() ||
+    (msalInstance.getAllAccounts()[0] || null);
+  if(account) {
+    msalInstance.setActiveAccount(account);
+    await initApp();
+  }
+})();
+</script>
+</body>
+</html>
