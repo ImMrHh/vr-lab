@@ -222,15 +222,9 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F8;color:var(--gray-800);m
         <input id="f-grupo" type="text" placeholder="Ej. 301"/>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Materia <span class="req">*</span></label>
-        <input id="f-materia" type="text" placeholder="Ej. Química"/>
-      </div>
-      <div class="form-group">
-        <label>No. de alumnos <span class="req">*</span></label>
-        <input id="f-alumnos" type="number" min="1" max="40" placeholder="Ej. 25"/>
-      </div>
+    <div class="form-group">
+      <label>Materia <span class="req">*</span></label>
+      <input id="f-materia" type="text" placeholder="Ej. Química"/>
     </div>
     <div class="form-group">
       <label>Actividad <span class="req">*</span></label>
@@ -254,7 +248,6 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F8;color:var(--gray-800);m
 <div class="toast" id="toast"></div>
 
 <script>
-// ── CONFIG — no secrets here, all calls go through Pipedream proxy ──
 const PROXY = 'https://eo49oi3ph6vtz30.m.pipedream.net';
 const ADMIN_PIN = '2026';
 
@@ -304,29 +297,34 @@ function showStatus(msg,type='ok'){
 }
 function hideStatus(){document.getElementById('status-bar').classList.add('hidden');}
 
-// ── PROXY CALLS — token lives only on Pipedream server ──
 async function proxyGet(params={}){
   const qs=new URLSearchParams(params).toString();
   const r=await fetch(`${PROXY}${qs?'?'+qs:''}`,{method:'GET'});
   if(!r.ok)throw new Error('Error '+r.status);
-  return r.json();
+  const data=await r.json();
+  if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
+  return data;
 }
 async function proxyPost(fields){
   const r=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
   if(!r.ok)throw new Error('Error '+r.status);
-  return r.json();
+  const data=await r.json();
+  if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
+  return data;
 }
 async function proxyPatch(id,fields){
   const r=await fetch(`${PROXY}?id=${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
   if(!r.ok)throw new Error('Error '+r.status);
-  return r.json();
+  const data=await r.json();
+  if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
+  return data;
 }
 
 async function loadBookings(){
   bookings={};mBlocked={};
   let offset='',all=[];
   do{
-    const params={filterByFormula:"NOT({Status}='Cancelled')",pageSize:'100'};
+    const params={"filterByFormula":"NOT({Status}='Cancelled')",pageSize:'100'};
     if(offset)params.offset=offset;
     const data=await proxyGet(params);
     all=[...all,...(data.records||[])];
@@ -338,11 +336,17 @@ async function loadBookings(){
     if(f.Status==='Blocked'){mBlocked[f.SlotKey]=rec.id;}
     else if(f.Status==='Confirmed'){
       bookings[f.SlotKey]={
-        id:rec.id,profesor:f.PROFESOR||'',grupo:f.GRUPO||'',
-        materia:f.MATERIA||'',alumnos:f.Alumnos||'',
-        actividad:f.Actividad||'',aprendizaje:f['Aprendizaje esperado/producto']||'',
-        observaciones:f.Observaciones||'',pLabel:f.Period||'',
-        pTime:f.HORA||'',dIdx:f.DayIndex||0,wOff:f.WeekOffset||0,
+        id:rec.id,
+        profesor:f.Profesor||'',
+        grupo:f.Grupo||'',
+        materia:f.Materia||'',
+        actividad:f.Actividad||'',
+        aprendizaje:f['Aprendizaje esperado/producto']||'',
+        observaciones:f.Observaciones||'',
+        pLabel:f.Period||'',
+        pTime:f.Hora||'',
+        dIdx:f.DayIndex||0,
+        wOff:f.WeekOffset||0,
       };
     }
   }
@@ -351,25 +355,35 @@ async function loadBookings(){
 async function saveBooking(key,data){
   const cd=getCellDate(data.wOff,data.dIdx);
   const fields={
-    PROFESOR:data.profesor,GRUPO:data.grupo,MATERIA:data.materia,
-    Alumnos:parseInt(data.alumnos),FECHA:dStr(cd),HORA:data.pTime,
-    Actividad:data.actividad,'Aprendizaje esperado/producto':data.aprendizaje,
-    Observaciones:data.observaciones||'',Period:data.pLabel,
-    DayOfWeek:FDAYS[data.dIdx],WeekOffset:data.wOff,
-    DayIndex:data.dIdx,SlotKey:key,Status:'Confirmed',
+    Profesor:data.profesor,
+    Grupo:data.grupo,
+    Materia:data.materia,
+    Fecha:dStr(cd),
+    Hora:data.pTime,
+    Actividad:data.actividad,
+    'Aprendizaje esperado/producto':data.aprendizaje,
+    Observaciones:data.observaciones||'',
+    Period:data.pLabel,
+    DayOfWeek:FDAYS[data.dIdx],
+    WeekOffset:data.wOff,
+    DayIndex:data.dIdx,
+    SlotKey:key,
+    Status:'Confirmed',
   };
   const resp=await proxyPost(fields);
   return resp.id;
 }
+
 async function cancelOnServer(id){await proxyPatch(id,{Status:'Cancelled'});}
+
 async function blockOnServer(key,wOff,dIdx,pLabel,pTime){
   const cd=getCellDate(wOff,dIdx);
   const fields={
-    PROFESOR:'Bloqueado',GRUPO:'-',MATERIA:'-',Alumnos:0,
-    FECHA:dStr(cd),HORA:pTime,Actividad:'-',
-    'Aprendizaje esperado/producto':'-',Period:pLabel,
-    DayOfWeek:FDAYS[dIdx],WeekOffset:wOff,DayIndex:dIdx,
-    SlotKey:key,Status:'Blocked',
+    Profesor:'Bloqueado',Grupo:'-',Materia:'-',
+    Fecha:dStr(cd),Hora:pTime,Actividad:'-',
+    'Aprendizaje esperado/producto':'-',
+    Period:pLabel,DayOfWeek:FDAYS[dIdx],
+    WeekOffset:wOff,DayIndex:dIdx,SlotKey:key,Status:'Blocked',
   };
   const resp=await proxyPost(fields);
   return resp.id;
@@ -453,7 +467,7 @@ function openModal(wOff,dIdx,pLabel,pTime,key){
   pendingModal={wOff,dIdx,pLabel,pTime,key};
   document.getElementById('modal-title').textContent=`Reservar ${pLabel}`;
   document.getElementById('modal-sub').textContent=`${FDAYS[dIdx]}, ${fmtDate(wOff,dIdx)} · ${pTime}`;
-  ['profesor','grupo','materia','alumnos','actividad','aprendizaje','observaciones'].forEach(f=>document.getElementById('f-'+f).value='');
+  ['profesor','grupo','materia','actividad','aprendizaje','observaciones'].forEach(f=>document.getElementById('f-'+f).value='');
   document.getElementById('modal').classList.remove('hidden');
   setTimeout(()=>document.getElementById('f-profesor').focus(),50);
 }
@@ -464,12 +478,11 @@ async function confirmBooking(){
     profesor:document.getElementById('f-profesor').value.trim(),
     grupo:document.getElementById('f-grupo').value.trim(),
     materia:document.getElementById('f-materia').value.trim(),
-    alumnos:document.getElementById('f-alumnos').value.trim(),
     actividad:document.getElementById('f-actividad').value.trim(),
     aprendizaje:document.getElementById('f-aprendizaje').value.trim(),
     observaciones:document.getElementById('f-observaciones').value.trim(),
   };
-  if(['profesor','grupo','materia','alumnos','actividad','aprendizaje'].some(k=>!vals[k])){
+  if(['profesor','grupo','materia','actividad','aprendizaje'].some(k=>!vals[k])){
     showToast('Por favor llena todos los campos requeridos','err');return;
   }
   const btn=document.getElementById('confirm-btn');
@@ -514,7 +527,7 @@ function renderList(){
       <div style="flex:1;min-width:0">
         <div class="b-main">${b.profesor} <span style="font-weight:400;color:var(--gray-400)">· ${b.grupo} · ${b.materia}</span></div>
         <div class="b-meta">
-          ${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${b.pLabel} (${b.pTime}) · ${b.alumnos} alumnos<br>
+          ${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${b.pLabel} (${b.pTime})<br>
           <span style="color:var(--gray-600)">${b.actividad}</span>
         </div>
       </div>
