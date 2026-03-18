@@ -628,20 +628,11 @@ function exportCSV(){
   const rows=entries.map(([key,b])=>{
     const cd=getCellDate(b.wOff,b.dIdx);
     const fecha=cd.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'});
-    return[
-      b.grupo,
-      b.materia,
-      fecha,
-      b.pTime,
-      b.actividad,
-      b.profesor,
-      b.aprendizaje,
-      b.observaciones||'',
-    ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
+    return[b.grupo,b.materia,fecha,b.pTime,b.actividad,b.profesor,b.aprendizaje,b.observaciones||'']
+      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
   });
-  const csv=[headers.join(','),...rows].join('
-');
-  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const csv=[headers.join(',')].concat(rows).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
