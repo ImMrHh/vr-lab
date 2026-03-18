@@ -184,6 +184,7 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F8;color:var(--gray-800);m
     <div class="view-tabs hidden" id="view-tabs">
       <button class="tab active" id="tab-grid" onclick="setView('grid')">Vista semanal</button>
       <button class="tab" id="tab-list" onclick="setView('list')">Todas las reservas</button>
+      <button class="tab" id="tab-export" onclick="exportCSV()" style="margin-left:auto;background:var(--green);color:white;border-color:var(--green)">⬇ Exportar Excel</button>
     </div>
     <div id="view-grid">
       <div class="card" style="padding:16px 20px">
@@ -615,6 +616,40 @@ function enterAdmin(){
   document.getElementById('admin-btn').classList.add('hidden');
   document.getElementById('view-tabs').classList.remove('hidden');
   renderGrid();
+}
+function exportCSV(){
+  const entries=Object.entries(bookings).sort((a,b)=>{
+    const[w1,d1,p1]=a[0].split('_');const[w2,d2,p2]=b[0].split('_');
+    return(+w1*1000 + +d1*10+ROWS.findIndex(r=>r.label===p1))-
+           (+w2*1000 + +d2*10+ROWS.findIndex(r=>r.label===p2));
+  });
+  if(!entries.length){showToast('No hay reservas para exportar','err');return;}
+  const headers=['GRUPO','MATERIA','FECHA','HORA','Actividad','PROFESOR','Aprendizaje esperado/producto','Observaciones'];
+  const rows=entries.map(([key,b])=>{
+    const cd=getCellDate(b.wOff,b.dIdx);
+    const fecha=cd.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'});
+    return[
+      b.grupo,
+      b.materia,
+      fecha,
+      b.pTime,
+      b.actividad,
+      b.profesor,
+      b.aprendizaje,
+      b.observaciones||'',
+    ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
+  });
+  const csv=[headers.join(','),...rows].join('
+');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  const today=new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'-');
+  a.download='VRLab_Reservas_'+today+'.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exportado correctamente');
 }
 function exitAdmin(){
   isAdmin=false;
