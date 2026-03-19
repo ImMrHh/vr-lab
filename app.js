@@ -448,9 +448,120 @@ function setView(v){
   currentView=v;
   document.getElementById('view-grid').classList.toggle('hidden',v!=='grid');
   document.getElementById('view-list').classList.toggle('hidden',v!=='list');
+  document.getElementById('view-stats').classList.toggle('hidden',v!=='stats');
   document.getElementById('tab-grid').classList.toggle('active',v==='grid');
   document.getElementById('tab-list').classList.toggle('active',v==='list');
+  document.getElementById('tab-stats').classList.toggle('active',v==='stats');
   if(v==='list')renderList();
+  if(v==='stats')renderStats();
+}
+
+function getWeekBookings(weekOffset){
+  const mon=getMonday(weekOffset);
+  const fri=new Date(mon);fri.setDate(mon.getDate()+4);
+  const monStr=dStr(mon),friStr=dStr(fri);
+  return Object.entries(bookings).filter(([key])=>{
+    const d=key.split('_')[0];
+    return d>=monStr&&d<=friStr;
+  }).map(([,b])=>b);
+}
+
+function getMonthBookings(){
+  const now=new Date();
+  const y=now.getFullYear(),m=String(now.getMonth()+1).padStart(2,'0');
+  const prefix=`${y}-${m}`;
+  return Object.entries(bookings).filter(([key])=>key.split('_')[0].startsWith(prefix)).map(([,b])=>b);
+}
+
+function getUsageRate(){
+  const mon=getMonday(0);
+  const periods=ROWS.filter(r=>r.type==='period');
+  let available=0,booked=0;
+  for(let d=0;d<5;d++){
+    const dt=new Date(mon);dt.setDate(mon.getDate()+d);
+    const ds=dStr(dt);
+    if(HOLIDAYS.has(ds)||dt>SCHOOL_END)continue;
+    for(const row of periods){
+      const teachingDays=TEACHING[d]||[];
+      if(teachingDays.includes(row.label))continue;
+      const key=`${ds}_${row.label}`;
+      if(mBlocked[key])continue;
+      available++;
+      if(bookings[key])booked++;
+    }
+  }
+  return{available,booked,rate:available>0?Math.round(booked/available*100):0};
+}
+
+function getTopTeachers(n){
+  const counts={};
+  getMonthBookings().forEach(b=>{if(b.profesor)counts[b.profesor]=(counts[b.profesor]||0)+1;});
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,n);
+}
+
+function getBusiestDay(){
+  const counts=[0,0,0,0,0];
+  Object.keys(bookings).forEach(key=>{
+    const d=new Date(key.split('_')[0]);
+    const dow=d.getDay();
+    if(dow>=1&&dow<=5)counts[dow-1]++;
+  });
+  const max=Math.max(...counts);
+  const idx=counts.indexOf(max);
+  return{day:FDAYS[idx],count:max};
+}
+
+function renderStats(){
+  const thisWeek=getWeekBookings(0).length;
+  const lastWeek=getWeekBookings(-1).length;
+  const delta=thisWeek-lastWeek;
+  const deltaHtml=delta===0?'':`<span class="stat-delta ${delta>0?'positive':'negative'}">${delta>0?'+':''}${delta}</span>`;
+
+  const thisMonth=getMonthBookings().length;
+  const usage=getUsageRate();
+  const blocked=Object.keys(mBlocked).length;
+  const topTeachers=getTopTeachers(5);
+  const busiest=getBusiestDay();
+
+  const topHtml=topTeachers.length
+    ?topTeachers.map(([ name,count],i)=>`
+        <div class="stat-rank-row">
+          <span class="stat-rank-pos">${i+1}.</span>
+          <span class="stat-rank-name">${esc(name)}</span>
+          <span class="stat-rank-count">${count} reserva${count!==1?'s':''}</span>
+        </div>`).join('')
+    :'<div style="font-size:13px;color:var(--gray-400)">Sin reservas este mes</div>';
+
+  document.getElementById('stats-grid').innerHTML=`
+    <div class="stat-card">
+      <div class="stat-number">${thisWeek}${deltaHtml}</div>
+      <div class="stat-label">Reservas esta semana</div>
+      ${lastWeek>0||thisWeek>0?`<div class="stat-hint">vs ${lastWeek} la semana pasada</div>`:''}
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">${thisMonth}</div>
+      <div class="stat-label">Reservas este mes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">${usage.rate}%</div>
+      <div class="stat-label">Tasa de uso esta semana</div>
+      <div class="stat-bar-wrap"><div class="stat-bar" style="width:${usage.rate}%"></div></div>
+      <div class="stat-hint">${usage.booked} de ${usage.available} slots disponibles</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">${blocked}</div>
+      <div class="stat-label">Slots bloqueados</div>
+    </div>
+    <div class="stat-card stat-card-wide">
+      <div class="stat-label" style="margin-bottom:10px">Top profesores este mes</div>
+      <div class="stat-rank">${topHtml}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">${busiest.count>0?busiest.day:'—'}</div>
+      <div class="stat-label">Día más ocupado</div>
+      ${busiest.count>0?`<div class="stat-hint">${busiest.count} reserva${busiest.count!==1?'s':''} en total</div>`:''}
+    </div>
+  `;
 }
 
 function showPin(){

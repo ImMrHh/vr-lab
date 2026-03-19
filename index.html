@@ -71,6 +71,7 @@
     <div class="view-tabs hidden" id="view-tabs">
       <button class="tab active" id="tab-grid" onclick="setView('grid')">Vista semanal</button>
       <button class="tab" id="tab-list" onclick="setView('list')">Todas las reservas</button>
+      <button class="tab" id="tab-stats" onclick="setView('stats')">📊 Estadísticas</button>
       <button class="tab" id="tab-export" onclick="exportCSV()" style="margin-left:auto;background:var(--green);color:white;border-color:var(--green)">⬇ Exportar Excel</button>
     </div>
     <div id="view-grid">
@@ -93,6 +94,9 @@
     </div>
     <div id="view-list" class="hidden">
       <div class="card" id="list-card"></div>
+    </div>
+    <div id="view-stats" class="hidden">
+      <div class="stats-grid" id="stats-grid"></div>
     </div>
   </div>
 </div>

@@ -154,3 +154,26 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F8;color:var(--gray-800);m
 [data-theme="dark"] ::-webkit-scrollbar-track{background:#0F1117}
 [data-theme="dark"] ::-webkit-scrollbar-thumb{background:var(--gray-200);border-radius:4px}
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:#4A4D57}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px}
+.stat-card{background:white;border-radius:var(--radius);border:1px solid var(--gray-200);box-shadow:var(--shadow);padding:20px 24px}
+.stat-card-wide{grid-column:span 2}
+.stat-number{font-size:30px;font-weight:700;color:var(--gray-800);line-height:1.1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.stat-label{font-size:12px;font-weight:500;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em}
+.stat-hint{font-size:11px;color:var(--gray-400);margin-top:6px}
+.stat-delta{font-size:13px;font-weight:600;padding:2px 7px;border-radius:20px}
+.stat-delta.positive{background:#D1FAE5;color:#065F46}
+.stat-delta.negative{background:#FEE2E2;color:#991B1B}
+.stat-bar-wrap{height:6px;background:var(--gray-100);border-radius:3px;margin-top:10px;overflow:hidden}
+.stat-bar{height:100%;background:var(--green);border-radius:3px;transition:width 0.4s ease}
+.stat-rank{display:flex;flex-direction:column;gap:6px}
+.stat-rank-row{display:flex;align-items:center;gap:8px;font-size:13px}
+.stat-rank-pos{color:var(--gray-400);font-weight:600;min-width:16px}
+.stat-rank-name{flex:1;color:var(--gray-800);font-weight:500}
+.stat-rank-count{color:var(--gray-400);font-size:12px}
+@media(max-width:720px){.stats-grid{grid-template-columns:repeat(2,1fr)}.stat-card-wide{grid-column:span 2}}
+@media(max-width:480px){.stats-grid{grid-template-columns:1fr}.stat-card-wide{grid-column:span 1}}
+[data-theme="dark"] .stat-card{background:#1A1D27;border-color:var(--gray-200)}
+[data-theme="dark"] .stat-delta.positive{background:#064e3b;color:#6ee7b7}
+[data-theme="dark"] .stat-delta.negative{background:#450a0a;color:#fca5a5}
+[data-theme="dark"] .stat-bar-wrap{background:var(--gray-100)}
+[data-theme="dark"] .stat-rank-name{color:var(--gray-800)}
