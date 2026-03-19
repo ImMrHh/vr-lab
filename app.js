@@ -1,4 +1,4 @@
-const PROXY = 'https://vr-lab-proxy.6z5fznmp4m.workers.dev';
+const PROXY = 'https://vr-lab-proxy.6z5fznmp4.workers.dev';
 const ADMIN_PIN = '2026';
 
 const DAYS  = ['Lun','Mar','Mié','Jue','Vie'];
@@ -77,7 +77,11 @@ async function proxyGet(params={}) {
   }
 }
 async function proxyPost(fields){
-  const r=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
+  const r=await fetch(PROXY,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({fields})
+  });
   const text=await r.text();
   try{
     const data=JSON.parse(text);
@@ -223,8 +227,7 @@ function renderGrid(loading=false){
         const b=booked;
         cell.className='slot slot-booked'+(isAdmin?' admin':'');
         cell.innerHTML=`<span class="s-text">${b.grupo} · ${b.materia}</span><span class="s-sub">${b.profesor}</span>`;
-        cell.title=`${b.profesor} · ${b.grupo} · ${b.materia}${isAdmin?'
-Clic para cancelar':''}`;
+        cell.title=`${b.profesor} · ${b.grupo} · ${b.materia}${isAdmin?'\nClic para cancelar':''}`;
         if(isAdmin)cell.onclick=()=>doCancel(key,b);
       }else if(past||far){
         cell.className='slot slot-past';
@@ -277,9 +280,7 @@ async function confirmBooking(){
 }
 
 async function doCancel(key,b){
-  if(!confirm(`¿Cancelar reserva?
-${b.profesor} — ${b.grupo} · ${b.materia}
-${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${b.pLabel}`))return;
+  if(!confirm(`¿Cancelar reserva?\n${b.profesor} — ${b.grupo} · ${b.materia}\n${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${b.pLabel}`))return;
   try{
     if(b.id)await cancelOnServer(b.id);
     delete bookings[key];renderGrid();
@@ -379,8 +380,7 @@ function exportCSV(){
     return[b.grupo,b.materia,fecha,b.pTime.split('–')[0].trim(),b.actividad,b.profesor,b.aprendizaje,b.observaciones||'']
       .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
   });
-  const csv=[headers.join(',')].concat(rows).join('
-');
+  const csv=[headers.join(',')].concat(rows).join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
