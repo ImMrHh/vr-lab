@@ -173,7 +173,11 @@ async function saveBooking(key,data){
   return resp.id;
 }
 
-async function cancelOnServer(id){await proxyPatch(id,{Status:'Cancelled'});}
+async function cancelOnServer(id,reason){
+  const fields={Status:'Cancelled'};
+  if(reason){fields.Observaciones=reason;}
+  await proxyPatch(id,fields);
+}
 
 async function checkConflict(slotKey){
   const safeKey=String(slotKey).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
@@ -382,10 +386,30 @@ async function confirmBooking(){
   finally{btn.disabled=false;btn.textContent='Confirmar reserva';}
 }
 
-async function doCancel(key,b){
-  if(!confirm(`¿Cancelar reserva?\n${b.profesor} — ${b.grupo} · ${b.materia}\n${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${b.pLabel}`))return;
+let _cancelPending=null;
+function doCancel(key,b){
+  _cancelPending={key,b};
+  const sub=`${esc(b.profesor)} — ${esc(b.grupo)} · ${esc(b.materia)}<br><span style="color:var(--gray-400)">${esc(FDAYS[b.dIdx])}, ${esc(fmtDate(b.wOff,b.dIdx))} · ${esc(b.pLabel)}</span>`;
+  document.getElementById('cancel-modal-sub').innerHTML=sub;
+  document.getElementById('cancel-reason').value='';
+  document.getElementById('cancel-modal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('cancel-reason').focus(),50);
+}
+function closeCancelModal(){
+  _cancelPending=null;
+  document.getElementById('cancel-modal').classList.add('hidden');
+}
+async function confirmCancel(){
+  if(!_cancelPending)return;
+  const reason=document.getElementById('cancel-reason').value.trim();
+  if(!reason){document.getElementById('cancel-reason').focus();return;}
+  const {key,b}=_cancelPending;
+  closeCancelModal();
   try{
-    if(b.id)await cancelOnServer(b.id);
+    if(b.id){
+      const obs=b.observaciones?`${b.observaciones} | [Cancelado: ${reason}]`:`[Cancelado: ${reason}]`;
+      await cancelOnServer(b.id,obs);
+    }
     delete bookings[key];renderGrid();
     if(currentView==='list')renderList();
     showToast('Reserva cancelada');
@@ -633,7 +657,8 @@ function exitAdmin(){
 
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    if(!document.getElementById('modal').classList.contains('hidden'))closeModal();
+    if(!document.getElementById('cancel-modal').classList.contains('hidden'))closeCancelModal();
+    else if(!document.getElementById('modal').classList.contains('hidden'))closeModal();
     else if(!document.getElementById('pin-screen').classList.contains('hidden'))hidePinScreen();
   }
   if(document.getElementById('pin-screen').classList.contains('hidden'))return;

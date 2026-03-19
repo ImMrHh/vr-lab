@@ -176,4 +176,8 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F8;color:var(--gray-800);m
 [data-theme="dark"] .stat-delta.positive{background:#064e3b;color:#6ee7b7}
 [data-theme="dark"] .stat-delta.negative{background:#450a0a;color:#fca5a5}
 [data-theme="dark"] .stat-bar-wrap{background:var(--gray-100)}
+.btn-danger{background:var(--danger);color:white;border-color:var(--danger)}
+.btn-danger:hover{background:#b91c1c;border-color:#b91c1c}
+[data-theme="dark"] .btn-danger{background:var(--danger);color:white;border-color:var(--danger)}
+[data-theme="dark"] .btn-danger:hover{background:#b91c1c;border-color:#b91c1c}
 [data-theme="dark"] .stat-rank-name{color:var(--gray-800)}
