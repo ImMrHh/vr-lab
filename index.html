@@ -6,7 +6,7 @@
 <title>R. Virtual · CUAM</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="style.css"/>
-
+<script>if(localStorage.getItem('vr-dark-mode')==='true')document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
 <body>
 
@@ -19,6 +19,7 @@
     </div>
   </div>
   <div class="topbar-right">
+    <button class="btn-theme" id="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
     <span class="badge-admin hidden" id="admin-badge">Admin</span>
     <button class="btn btn-sm hidden" id="exit-admin-btn" onclick="exitAdmin()">Salir de admin</button>
     <button class="btn btn-sm hidden" id="admin-btn" onclick="showPin()">Admin</button>
@@ -82,9 +83,9 @@
         </div>
         <div class="grid-wrap"><div class="grid" id="grid"></div></div>
         <div class="legend">
-          <div class="leg-item"><div class="leg-dot" style="background:white"></div>Disponible</div>
-          <div class="leg-item"><div class="leg-dot" style="background:#C8F0DE;border-color:#5DCAA5"></div>Reservado</div>
-          <div class="leg-item"><div class="leg-dot" style="background:#DDD6FE;border-color:#8B7FD4"></div>Clase del coordinador</div>
+          <div class="leg-item"><div class="leg-dot leg-dot-free"></div>Disponible</div>
+          <div class="leg-item"><div class="leg-dot leg-dot-booked"></div>Reservado</div>
+          <div class="leg-item"><div class="leg-dot leg-dot-teaching"></div>Clase del coordinador</div>
           <div class="leg-item"><div class="leg-dot" style="background:var(--gray-100)"></div>No disponible</div>
         </div>
         <p class="admin-hint hidden" id="admin-hint">Admin: clic en libre para reservar · clic derecho en libre para bloquear · clic en reservado para cancelar · clic en bloqueado para desbloquear</p>

@@ -21,6 +21,8 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F8;color:var(--gray-800);m
 .btn-primary:hover{background:var(--green-dark);border-color:var(--green-dark)}
 .btn-sm{padding:5px 11px;font-size:12px}
 .btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn-theme{background:none;border:none;cursor:pointer;font-size:18px;padding:4px 6px;border-radius:var(--radius-sm);line-height:1;transition:background 0.15s;font-family:'DM Sans',sans-serif}
+.btn-theme:hover{background:var(--gray-100)}
 .container{max-width:980px;margin:0 auto;padding:24px 20px}
 .card{background:white;border-radius:var(--radius);border:1px solid var(--gray-200);box-shadow:var(--shadow);padding:20px 24px;margin-bottom:16px}
 #auth-screen{min-height:calc(100vh - 56px);display:flex;align-items:center;justify-content:center}
@@ -89,6 +91,9 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F8;color:var(--gray-800);m
 .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px}
 .leg-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--gray-400)}
 .leg-dot{width:10px;height:10px;border-radius:3px;border:1px solid var(--gray-200)}
+.leg-dot-free{background:white}
+.leg-dot-booked{background:#C8F0DE;border-color:#5DCAA5}
+.leg-dot-teaching{background:#DDD6FE;border-color:#8B7FD4}
 .admin-hint{font-size:12px;color:var(--gray-400);margin-top:10px;font-style:italic}
 .view-tabs{display:flex;gap:6px;margin-bottom:14px}
 .tab{padding:6px 14px;border-radius:var(--radius-sm);border:1px solid var(--gray-200);background:white;font-size:12px;font-weight:500;color:var(--gray-400);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.12s}
@@ -120,3 +125,32 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F8;color:var(--gray-800);m
 .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 .hidden{display:none!important}
+[data-theme="dark"]{--green-light:#1a3a2e;--green-mid:#4db884;--green-dark:#5DCAA5;--purple-light:#2a2545;--purple-mid:#AFA9EC;--purple-text:#AFA9EC;--gray-50:#1A1D27;--gray-100:#252836;--gray-200:#2A2D37;--gray-600:#C9CDD5;--gray-800:#E5E7EB;--shadow:0 1px 3px rgba(0,0,0,0.3);--shadow-md:0 4px 16px rgba(0,0,0,0.4)}
+[data-theme="dark"] body{background:#0F1117}
+[data-theme="dark"] .topbar{background:#1A1D27;border-bottom-color:#2A2D37}
+[data-theme="dark"] .card,[data-theme="dark"] .auth-card,[data-theme="dark"] .pin-card,[data-theme="dark"] .modal{background:#1A1D27}
+[data-theme="dark"] .btn{background:#252836;color:var(--gray-600);border-color:var(--gray-200)}
+[data-theme="dark"] .btn:hover{background:var(--gray-200);border-color:#4A4D57}
+[data-theme="dark"] .slot-free{background:#252836}
+[data-theme="dark"] .slot-booked{background:#1a3a2e;border-color:#2d6b50}
+[data-theme="dark"] .slot-teaching{background:#2a2545;border-color:#5b4f8a}
+[data-theme="dark"] .slot-past{background:repeating-linear-gradient(135deg,#181b24,#181b24 4px,#101318 4px,#101318 5px)}
+[data-theme="dark"] .pin-dot{background:#252836;border-color:var(--gray-200)}
+[data-theme="dark"] .pin-key{background:#252836;border-color:var(--gray-200);color:var(--gray-800)}
+[data-theme="dark"] .pin-key:hover{background:var(--gray-200)}
+[data-theme="dark"] .tab{background:#252836;border-color:var(--gray-200);color:var(--gray-400)}
+[data-theme="dark"] .tab.active{background:var(--gray-800);color:#0F1117;border-color:var(--gray-800)}
+[data-theme="dark"] .form-group input,[data-theme="dark"] .form-group textarea{background:#252836;border-color:var(--gray-200);color:var(--gray-800)}
+[data-theme="dark"] .form-group select{background:#252836;border-color:var(--gray-200);color:var(--gray-800)}
+[data-theme="dark"] .booking-row{background:#1A1D27;border-color:var(--gray-200)}
+[data-theme="dark"] .status-ok{border-color:#2d6b50}
+[data-theme="dark"] .status-err{background:#3a1a1a;border-color:#7a3a3a;color:#FCA5A5}
+[data-theme="dark"] .btn-today.at-today{background:#252836;color:var(--gray-400)}
+[data-theme="dark"] .btn-today.at-today:hover{background:#252836}
+[data-theme="dark"] .leg-dot-free{background:#252836}
+[data-theme="dark"] .leg-dot-booked{background:#1a3a2e;border-color:#2d6b50}
+[data-theme="dark"] .leg-dot-teaching{background:#2a2545;border-color:#5b4f8a}
+[data-theme="dark"] ::-webkit-scrollbar{width:8px;height:8px}
+[data-theme="dark"] ::-webkit-scrollbar-track{background:#0F1117}
+[data-theme="dark"] ::-webkit-scrollbar-thumb{background:var(--gray-200);border-radius:4px}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:#4A4D57}
