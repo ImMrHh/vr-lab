@@ -37,8 +37,33 @@ const fmtDate=(w,d)=>getCellDate(w,d).toLocaleDateString('es-MX',{day:'numeric',
 const slotKey=(w,d,p)=>`${dStr(getCellDate(w,d))}_${p}`;
 const isToday=(w,d)=>{const dt=getCellDate(w,d),n=new Date();n.setHours(0,0,0,0);return dt.getTime()===n.getTime();};
 const isPast=(w,d,t)=>{const dt=getCellDate(w,d);const startTime=t.split('–')[0];dt.setHours(parseInt(startTime),parseInt(startTime.split(':')[1]||'0'),0,0);return dt<new Date();};
-const isTooFar=(w,d)=>{const l=new Date();l.setDate(l.getDate()+30);return getCellDate(w,d)>l;};
 const isPastSchoolEnd=(w,d)=>getCellDate(w,d)>SCHOOL_END;
+
+const TEACHER_DATA = {
+  'Alma': { subjects: { 'Matemáticas': ['201','202','206','301','302','303','304','305'] } },
+  'Silvia': { subjects: { 'Biología': ['101','102','103','104','105'] } },
+  'Carlos': { subjects: { 'Física': ['201','202','203','204','205','206','Robótica'] } },
+  'Araceli': { subjects: { 'Español': ['103','104','105','301','302','303','304','305'] } },
+  'Gustavo': { subjects: { 'Español': ['101','102','201','202','203','204','205','206'] } },
+  'Guillermo': { subjects: { 'Matemáticas': ['101','102','103','104','105','203','204','205'] } },
+  'Regino': { subjects: { 'Química': ['301','302','303','304','305'] } },
+  'Óscar S.': { subjects: { 'Geografía': ['101','102','103','104','105'] } },
+  'Patricia': { subjects: { 'Historia': ['101','102','103','104','105','201','202','203','204','205','206'] } },
+  'Cecilia': { subjects: { 'Historia': ['101','102','103','104','105','201','202','203','204','205','206','301','302','303','304','305'], 'FCE': ['101','102','103','104','105','201','202','203','204','205','206','301','302','303','304','305'], 'Socioemoc.': ['101','102','103','104','105','201','202','203','204','205','206','301','302','303','304','305'] } },
+  'José Antonio': { subjects: { 'Tecnología': ['101','102','103','104','105','201','202','203','204','205','206'] } },
+  'Henrik': { subjects: { 'Tecnología': ['301','302','303','304','305'], 'Admin': ['101','102','103','104','105','201','202','203','204','205','206','301','302','303','304','305','1A','1B','2A','2B','3A','3B','Robótica'] } },
+  'Luis': { subjects: { 'Educ. Física': ['101','102','103','104','105','301','302'] } },
+  'Eduardo': { subjects: { 'Educ. Física': ['201','202','203','204','205','206','303','304','305'] } },
+  'Mariana': { subjects: { 'Francés': ['101','102','103','104','105','201','202','203','204','205','206','301','302','303','304','305'] } },
+  'María': { subjects: { 'Arte': ['202','203','204','205','206','301','302','303','304','305'] } },
+  'Karina': { subjects: { 'Arte': ['101','102','103','104','105','201','202'] } },
+  'Pablo': { subjects: { 'FCE': ['102','103','104','201','202','203','204','205','206','301','302','303','304'] } },
+  'Marcela': { subjects: { 'Inglés': ['1A','1B','2A','2B','3A','3B'] } },
+  'Daniela': { subjects: { 'Inglés': ['1A','1B','2A','2B','3A','3B'] } },
+  'Natalia': { subjects: { 'Inglés': ['1A','1B','2A','2B','3A'] } },
+  'Marling': { subjects: { 'Socioemoc.': ['301','302','303','304','305'] } },
+  'Daniel': { subjects: { 'Inglés': ['1A','1B','2A','2B','3A','3B'] } },
+};
 
 function showToast(msg,type='ok'){
   const t=document.getElementById('toast');
@@ -215,7 +240,6 @@ function renderGrid(loading=false){
       if(loading){cell.className='slot slot-loading';g.appendChild(cell);return;}
       const teaching=(TEACHING[di]||[]).includes(row.label);
       const past=isPast(weekOff,di,row.time);
-      const far=isTooFar(weekOff,di);
       const pastEnd=isPastSchoolEnd(weekOff,di);
       const booked=bookings[key];
       const blocked=mBlocked.hasOwnProperty(key);
@@ -231,10 +255,10 @@ function renderGrid(loading=false){
         cell.innerHTML=`<span class="s-text">${esc(b.grupo)} · ${esc(b.materia)}</span><span class="s-sub">${esc(b.profesor)}</span>`;
         cell.title=`${esc(b.profesor)} · ${esc(b.grupo)} · ${esc(b.materia)}${isAdmin?'\nClic para cancelar':''}`;
         if(isAdmin)cell.onclick=()=>doCancel(key,b);
-      }else if(past||far||pastEnd){
+      }else if(past||pastEnd){
         cell.className='slot slot-past';
         cell.innerHTML=`<span class="s-text" style="color:var(--gray-400);font-weight:400;font-size:10px">—</span>`;
-        cell.title=past?'Periodo pasado':pastEnd?'Fuera del ciclo escolar':'Fuera de rango (máx. 30 días)';
+        cell.title=past?'Periodo pasado':'Fuera del ciclo escolar';
       }else{
         cell.className='slot slot-free'+(isAdmin?' admin':'');
         if(isAdmin){
@@ -253,11 +277,63 @@ function openModal(wOff,dIdx,pLabel,pTime,key){
   pendingModal={wOff,dIdx,pLabel,pTime,key};
   document.getElementById('modal-title').textContent=`Reservar ${pLabel}`;
   document.getElementById('modal-sub').textContent=`${FDAYS[dIdx]}, ${fmtDate(wOff,dIdx)} · ${pTime}`;
-  ['profesor','grupo','materia','actividad','aprendizaje','observaciones'].forEach(f=>document.getElementById('f-'+f).value='');
+  document.getElementById('f-actividad').value='';
+  document.getElementById('f-aprendizaje').value='';
+  document.getElementById('f-observaciones').value='';
+  populateTeachers();
+  document.getElementById('f-profesor').value='';
+  document.getElementById('f-profesor').onchange=onTeacherChange;
+  document.getElementById('f-materia').onchange=onSubjectChange;
+  document.getElementById('f-materia').disabled=true;
+  document.getElementById('f-grupo').disabled=true;
   document.getElementById('modal').classList.remove('hidden');
   setTimeout(()=>document.getElementById('f-profesor').focus(),50);
 }
 function closeModal(){document.getElementById('modal').classList.add('hidden');pendingModal=null;}
+
+function populateTeachers(){
+  const sel=document.getElementById('f-profesor');
+  sel.innerHTML='<option value="">Seleccionar profesor…</option>';
+  Object.keys(TEACHER_DATA).sort().forEach(name=>{
+    const opt=document.createElement('option');
+    opt.value=name;opt.textContent=name;
+    sel.appendChild(opt);
+  });
+}
+
+function onTeacherChange(){
+  const teacher=document.getElementById('f-profesor').value;
+  const matSel=document.getElementById('f-materia');
+  const grpSel=document.getElementById('f-grupo');
+  matSel.innerHTML='<option value="">Seleccionar materia…</option>';
+  grpSel.innerHTML='<option value="">Seleccionar grupo…</option>';
+  grpSel.disabled=true;
+  if(!teacher||!TEACHER_DATA[teacher]){matSel.disabled=true;return;}
+  const subjects=Object.keys(TEACHER_DATA[teacher].subjects);
+  matSel.disabled=false;
+  subjects.forEach(sub=>{
+    const opt=document.createElement('option');
+    opt.value=sub;opt.textContent=sub;
+    matSel.appendChild(opt);
+  });
+  if(subjects.length===1){matSel.value=subjects[0];onSubjectChange();}
+}
+
+function onSubjectChange(){
+  const teacher=document.getElementById('f-profesor').value;
+  const subject=document.getElementById('f-materia').value;
+  const grpSel=document.getElementById('f-grupo');
+  grpSel.innerHTML='<option value="">Seleccionar grupo…</option>';
+  if(!teacher||!subject||!TEACHER_DATA[teacher]||!TEACHER_DATA[teacher].subjects[subject]){grpSel.disabled=true;return;}
+  const groups=TEACHER_DATA[teacher].subjects[subject];
+  grpSel.disabled=false;
+  groups.forEach(grp=>{
+    const opt=document.createElement('option');
+    opt.value=grp;opt.textContent=grp;
+    grpSel.appendChild(opt);
+  });
+  if(groups.length===1){grpSel.value=groups[0];}
+}
 
 async function confirmBooking(){
   const vals={
