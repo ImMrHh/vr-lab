@@ -529,3 +529,21 @@ document.addEventListener('keydown',e=>{
   if(e.key>='0'&&e.key<='9')pinPress(e.key);
   else if(e.key==='Backspace')pinPress('del');
 });
+
+function toggleTheme(){
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  if(isDark){
+    document.documentElement.removeAttribute('data-theme');
+    document.getElementById('theme-toggle').textContent='🌙';
+    localStorage.setItem('vr-dark-mode','false');
+  }else{
+    document.documentElement.setAttribute('data-theme','dark');
+    document.getElementById('theme-toggle').textContent='☀️';
+    localStorage.setItem('vr-dark-mode','true');
+  }
+}
+function initTheme(){
+  const btn=document.getElementById('theme-toggle');
+  if(btn&&document.documentElement.getAttribute('data-theme')==='dark')btn.textContent='☀️';
+}
+initTheme();
