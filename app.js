@@ -11,9 +11,9 @@ const ROWS  = [
   {type:'period',label:'P4',time:'10:20–11:10'},
   {type:'period',label:'P5',time:'11:10–12:00'},
   {type:'period',label:'P6',time:'12:00–12:50'},
-  {type:'recess',label:'R2',time:'12:50–1:10'},
-  {type:'period',label:'P7',time:'1:10–2:00'},
-  {type:'period',label:'P8',time:'2:00–2:50'},
+  {type:'recess',label:'R2',time:'12:50–13:10'},
+  {type:'period',label:'P7',time:'13:10–14:00'},
+  {type:'period',label:'P8',time:'14:00–14:50'},
 ];
 const TEACHING = {0:['P1','P6','P8'],1:['P1','P2','P6','P7'],2:['P1','P6','P8'],3:['P6'],4:['P1','P2','P3','P7','P8']};
 const HOLIDAYS = new Set([
@@ -26,13 +26,15 @@ const HOLIDAYS = new Set([
 let isAdmin=false,weekOff=0,currentView='grid',pinVal='';
 let bookings={},mBlocked={},pendingModal=null;
 
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+
 const getMonday=off=>{const n=new Date(),dy=n.getDay(),m=new Date(n);m.setDate(n.getDate()-dy+(dy===0?-6:1)+off*7);m.setHours(0,0,0,0);return m;};
 const getCellDate=(w,d)=>{const m=getMonday(w),dt=new Date(m);dt.setDate(dt.getDate()+d);return dt;};
 const dStr=d=>d.toISOString().slice(0,10);
 const fmtDate=(w,d)=>getCellDate(w,d).toLocaleDateString('es-MX',{day:'numeric',month:'short'});
-const slotKey=(w,d,p)=>`${w}_${d}_${p}`;
+const slotKey=(w,d,p)=>`${dStr(getCellDate(w,d))}_${p}`;
 const isToday=(w,d)=>{const dt=getCellDate(w,d),n=new Date();n.setHours(0,0,0,0);return dt.getTime()===n.getTime();};
-const isPast=(w,d,t)=>{const dt=getCellDate(w,d);dt.setHours(parseInt(t),parseInt((t.split(':')[1]||'0')),0,0);return dt<new Date();};
+const isPast=(w,d,t)=>{const dt=getCellDate(w,d);const startTime=t.split('–')[0];dt.setHours(parseInt(startTime),parseInt(startTime.split(':')[1]||'0'),0,0);return dt<new Date();};
 const isTooFar=(w,d)=>{const l=new Date();l.setDate(l.getDate()+30);return getCellDate(w,d)>l;};
 
 function showToast(msg,type='ok'){
@@ -55,24 +57,6 @@ async function proxyGetUrl(url){
     if(data.records) return data;
     return {records:[]};
   }catch(e){
-    console.log('GET parse error:',text.slice(0,200));
-    return {records:[]};
-  }
-}
-async function proxyGet(params={}) {
-  const parts=[];
-  for(const[k,v] of Object.entries(params)){
-    parts.push(k+'='+v);
-  }
-  const qs=parts.join('&');
-  const r=await fetch(`${PROXY}${qs?'?'+qs:''}`,{method:'GET'});
-  const text=await r.text();
-  try{
-    const data=JSON.parse(text);
-    if(data.records) return data;
-    return {records:[]};
-  }catch(e){
-    console.log('GET parse error:',text.slice(0,200));
     return {records:[]};
   }
 }
@@ -89,14 +73,20 @@ async function proxyPost(fields){
     throw new Error(data.error?.message||'Error al guardar');
   }catch(e){
     if(e.message==='Error al guardar') throw e;
-    console.log('POST error:',text.slice(0,200));
     throw new Error('Respuesta inválida del servidor');
   }
 }
 async function proxyPatch(id,fields){
   const r=await fetch(`${PROXY}?id=${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
-  const data=await r.json();
-  return data;
+  const text=await r.text();
+  try{
+    const data=JSON.parse(text);
+    if(data.error) throw new Error(data.error.message||'Error en servidor');
+    return data;
+  }catch(e){
+    if(!(e instanceof SyntaxError)) throw e;
+    throw new Error('Respuesta inválida del servidor');
+  }
 }
 
 async function loadBookings(){
@@ -106,18 +96,17 @@ async function loadBookings(){
     const formula=encodeURIComponent("NOT({Status}='Cancelled')");
     const url=`${PROXY}?filterByFormula=${formula}&pageSize=100${offset?'&offset='+offset:''}`;
     const raw=await proxyGetUrl(url);
-    console.log('RAW RESPONSE:', JSON.stringify(raw).slice(0,500));
     const data=raw.records ? raw : (raw.$return_value || raw);
-    console.log('RECORDS FOUND:', (data.records||[]).length);
     all=[...all,...(data.records||[])];
     offset=data.offset||'';
   }while(offset);
   for(const rec of all){
     const f=rec.fields;
-    if(!f.SlotKey)continue;
-    if(f.Status==='Blocked'){mBlocked[f.SlotKey]=rec.id;}
+    if(!f.SlotKey && !(f.Fecha && f.Period))continue;
+    const key=f.Fecha && f.Period ? `${f.Fecha}_${f.Period}` : f.SlotKey;
+    if(f.Status==='Blocked'){mBlocked[key]=rec.id;}
     else if(f.Status==='Confirmed'){
-      bookings[f.SlotKey]={
+      bookings[key]={
         id:rec.id,
         profesor:f.Profesor||'',
         grupo:f.Grupo||'',
@@ -226,8 +215,8 @@ function renderGrid(loading=false){
       }else if(booked){
         const b=booked;
         cell.className='slot slot-booked'+(isAdmin?' admin':'');
-        cell.innerHTML=`<span class="s-text">${b.grupo} · ${b.materia}</span><span class="s-sub">${b.profesor}</span>`;
-        cell.title=`${b.profesor} · ${b.grupo} · ${b.materia}${isAdmin?'\nClic para cancelar':''}`;
+        cell.innerHTML=`<span class="s-text">${esc(b.grupo)} · ${esc(b.materia)}</span><span class="s-sub">${esc(b.profesor)}</span>`;
+        cell.title=`${esc(b.profesor)} · ${esc(b.grupo)} · ${esc(b.materia)}${isAdmin?'\nClic para cancelar':''}`;
         if(isAdmin)cell.onclick=()=>doCancel(key,b);
       }else if(past||far){
         cell.className='slot slot-past';
@@ -237,6 +226,7 @@ function renderGrid(loading=false){
         if(isAdmin){
           cell.innerHTML=`<span style="font-size:18px;color:var(--gray-200)">+</span>`;
           cell.onclick=()=>openModal(weekOff,di,row.label,row.time,key);
+          cell.oncontextmenu=(e)=>{e.preventDefault();doBlock(key,weekOff,di,row.label,row.time);};
         }
       }
       g.appendChild(cell);
@@ -296,21 +286,31 @@ async function doUnblock(key){
   }catch(e){showToast('Error: '+e.message,'err');}
 }
 
+async function doBlock(key,wOff,dIdx,pLabel,pTime){
+  if(!confirm(`¿Bloquear ${pLabel} del ${FDAYS[dIdx]}, ${fmtDate(wOff,dIdx)}?`))return;
+  try{
+    const id=await blockOnServer(key,wOff,dIdx,pLabel,pTime);
+    mBlocked[key]=id;
+    renderGrid();
+    showToast('Slot bloqueado');
+  }catch(e){showToast('Error: '+e.message,'err');}
+}
+
 function renderList(){
   const c=document.getElementById('list-card');
   const entries=Object.entries(bookings).sort((a,b)=>{
-    const[w1,d1,p1]=a[0].split('_');const[w2,d2,p2]=b[0].split('_');
-    return(+w1*1000 + +d1*10+ROWS.findIndex(r=>r.label===p1))-
-           (+w2*1000 + +d2*10+ROWS.findIndex(r=>r.label===p2));
+    const[date1,p1]=a[0].split('_');const[date2,p2]=b[0].split('_');
+    if(date1!==date2)return date1<date2?-1:1;
+    return ROWS.findIndex(r=>r.label===p1)-ROWS.findIndex(r=>r.label===p2);
   });
   if(!entries.length){c.innerHTML='<p style="font-size:13px;color:var(--gray-400);padding:4px 0">No hay reservas registradas.</p>';return;}
   c.innerHTML=entries.map(([key,b])=>`
     <div class="booking-row">
       <div style="flex:1;min-width:0">
-        <div class="b-main">${b.profesor} <span style="font-weight:400;color:var(--gray-400)">· ${b.grupo} · ${b.materia}</span></div>
+        <div class="b-main">${esc(b.profesor)} <span style="font-weight:400;color:var(--gray-400)">· ${esc(b.grupo)} · ${esc(b.materia)}</span></div>
         <div class="b-meta">
-          ${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${b.pLabel} (${b.pTime})<br>
-          <span style="color:var(--gray-600)">${b.actividad}</span>
+          ${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${esc(b.pLabel)} (${esc(b.pTime)})<br>
+          <span style="color:var(--gray-600)">${esc(b.actividad)}</span>
         </div>
       </div>
       <div class="b-actions">
@@ -368,9 +368,9 @@ function enterAdmin(){
 }
 function exportCSV(){
   const entries=Object.entries(bookings).sort((a,b)=>{
-    const[w1,d1,p1]=a[0].split('_');const[w2,d2,p2]=b[0].split('_');
-    return(+w1*1000 + +d1*10+ROWS.findIndex(r=>r.label===p1))-
-           (+w2*1000 + +d2*10+ROWS.findIndex(r=>r.label===p2));
+    const[date1,p1]=a[0].split('_');const[date2,p2]=b[0].split('_');
+    if(date1!==date2)return date1<date2?-1:1;
+    return ROWS.findIndex(r=>r.label===p1)-ROWS.findIndex(r=>r.label===p2);
   });
   if(!entries.length){showToast('No hay reservas para exportar','err');return;}
   const headers=['GRUPO','MATERIA','FECHA','HORA','Actividad','PROFESOR','Aprendizaje esperado/producto','Observaciones'];
@@ -399,3 +399,13 @@ function exitAdmin(){
   document.getElementById('view-tabs').classList.add('hidden');
   setView('grid');renderGrid();
 }
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(!document.getElementById('modal').classList.contains('hidden'))closeModal();
+    else if(!document.getElementById('pin-screen').classList.contains('hidden'))hidePinScreen();
+  }
+  if(document.getElementById('pin-screen').classList.contains('hidden'))return;
+  if(e.key>='0'&&e.key<='9')pinPress(e.key);
+  else if(e.key==='Backspace')pinPress('del');
+});
