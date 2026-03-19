@@ -173,7 +173,11 @@ async function saveBooking(key,data){
   return resp.id;
 }
 
-async function cancelOnServer(id){await proxyPatch(id,{Status:'Cancelled'});}
+async function cancelOnServer(id,reason){
+  const fields={Status:'Cancelled'};
+  if(reason){fields.Observaciones=reason;}
+  await proxyPatch(id,fields);
+}
 
 async function checkConflict(slotKey){
   const safeKey=String(slotKey).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
@@ -383,19 +387,26 @@ async function confirmBooking(){
 }
 
 async function doCancel(key,b){
-  showConfirmDialog(
-    '¿Cancelar reserva?',
-    `${b.profesor} — ${b.grupo} · ${b.materia}<br>${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${b.pLabel}`,
-    'Cancelar reserva','danger',
-    async()=>{
-      try{
-        if(b.id)await cancelOnServer(b.id);
-        delete bookings[key];renderGrid();
-        if(currentView==='list')renderList();
-        showToast('Reserva cancelada');
-      }catch(e){showToast('Error: '+e.message,'err');}
-    }
-  );
+  document.getElementById('cancel-modal-title').textContent='¿Cancelar reserva?';
+  document.getElementById('cancel-modal-info').innerHTML=
+    `<strong>${esc(b.profesor)}</strong> — ${esc(b.grupo)} · ${esc(b.materia)}<br>${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${esc(b.pLabel)} (${esc(b.pTime)})`;
+  document.getElementById('cancel-reason').value='';
+  document.getElementById('cancel-modal').classList.remove('hidden');
+
+  document.getElementById('cancel-confirm-btn').onclick=async()=>{
+    const reason=document.getElementById('cancel-reason').value.trim();
+    if(!reason){showToast('Por favor ingresa un motivo de cancelación','err');return;}
+    const obs=b.observaciones
+      ?`${b.observaciones} | [Cancelado: ${reason}]`
+      :`[Cancelado: ${reason}]`;
+    try{
+      if(b.id)await cancelOnServer(b.id,obs);
+      delete bookings[key];renderGrid();
+      if(currentView==='list')renderList();
+      showToast('Reserva cancelada');
+    }catch(e){showToast('Error: '+e.message,'err');}
+    document.getElementById('cancel-modal').classList.add('hidden');
+  };
 }
 
 async function doUnblock(key){
@@ -679,6 +690,18 @@ function closeConfirmDialog(){
   document.getElementById('confirm-modal').classList.add('hidden');
   _confirmCallback=null;
 }
+function closeCancelModal(){
+  document.getElementById('cancel-modal').classList.add('hidden');
+  document.getElementById('cancel-reason').value='';
+  document.getElementById('cancel-confirm-btn').onclick=null;
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    closeCancelModal();
+    closeConfirmDialog();
+  }
+});
 
 function toggleTheme(){
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
