@@ -1,4 +1,4 @@
-const CACHE_NAME='vr-lab-v1';
+const CACHE_NAME='vr-lab-v2';
 const STATIC_ASSETS=['index.html','app.js','style.css','manifest.json','icon.svg'];
 
 self.addEventListener('install',e=>{
@@ -28,16 +28,13 @@ self.addEventListener('fetch',e=>{
   }
   if(e.request.method==='GET'&&new URL(url).origin===self.location.origin){
     e.respondWith(
-      caches.match(e.request).then(cached=>{
-        if(cached)return cached;
-        return fetch(e.request).then(res=>{
-          if(res&&res.status===200){
-            const clone=res.clone();
-            caches.open(CACHE_NAME).then(c=>c.put(e.request,clone));
-          }
-          return res;
-        });
-      })
+      fetch(e.request).then(res=>{
+        if(res&&res.status===200){
+          const clone=res.clone();
+          caches.open(CACHE_NAME).then(c=>c.put(e.request,clone));
+        }
+        return res;
+      }).catch(()=>caches.match(e.request))
     );
   }
 });

@@ -158,6 +158,21 @@
   </div>
 </div>
 
+<div id="cancel-modal" class="modal-bg hidden" onclick="if(event.target===this)closeCancelModal()">
+  <div class="modal" style="width:380px">
+    <h2 id="cancel-modal-title">¿Cancelar reserva?</h2>
+    <p class="modal-sub" id="cancel-modal-info"></p>
+    <div class="form-group">
+      <label>Motivo de cancelación <span class="req">*</span></label>
+      <textarea id="cancel-reason" placeholder="Escribe el motivo de la cancelación…" rows="3"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" style="flex:1" onclick="closeCancelModal()">Volver</button>
+      <button class="btn btn-danger" style="flex:1" id="cancel-confirm-btn">Cancelar reserva</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="app.js"></script>
