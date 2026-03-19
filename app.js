@@ -147,6 +147,15 @@ async function saveBooking(key,data){
 
 async function cancelOnServer(id){await proxyPatch(id,{Status:'Cancelled'});}
 
+async function checkConflict(slotKey){
+  const safeKey=String(slotKey).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const formula=encodeURIComponent(`AND({SlotKey}='${safeKey}', {Status}='Confirmed')`);
+  const url=`${PROXY}?filterByFormula=${formula}&pageSize=1`;
+  const raw=await proxyGetUrl(url);
+  const data=raw.records ? raw : (raw.$return_value || raw);
+  return (data.records||[]).length > 0;
+}
+
 async function blockOnServer(key,wOff,dIdx,pLabel,pTime){
   const cd=getCellDate(wOff,dIdx);
   const fields={
@@ -260,6 +269,16 @@ async function confirmBooking(){
   const btn=document.getElementById('confirm-btn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Guardando…';
   try{
+    const conflict=await checkConflict(pendingModal.key);
+    if(conflict){
+      showToast('⚠️ Este periodo ya fue reservado por otro usuario','err');
+      await loadBookings();
+      renderGrid();
+      btn.disabled=false;
+      btn.textContent='Confirmar reserva';
+      closeModal();
+      return;
+    }
     const itemId=await saveBooking(pendingModal.key,{...vals,...pendingModal});
     bookings[pendingModal.key]={...vals,...pendingModal,id:itemId};
     closeModal();renderGrid();
@@ -289,6 +308,13 @@ async function doUnblock(key){
 async function doBlock(key,wOff,dIdx,pLabel,pTime){
   if(!confirm(`¿Bloquear ${pLabel} del ${FDAYS[dIdx]}, ${fmtDate(wOff,dIdx)}?`))return;
   try{
+    const conflict=await checkConflict(key);
+    if(conflict){
+      showToast('⚠️ Este periodo ya fue reservado por otro usuario','err');
+      await loadBookings();
+      renderGrid();
+      return;
+    }
     const id=await blockOnServer(key,wOff,dIdx,pLabel,pTime);
     mBlocked[key]=id;
     renderGrid();
