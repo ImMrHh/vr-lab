@@ -201,7 +201,7 @@ async function enterApp(){
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('main-app').classList.remove('hidden');
   document.getElementById('admin-btn').classList.remove('hidden');
-  renderWeekLabel();renderGrid(true);
+  renderWeekLabel();renderGrid(true);updateTodayBtn();
   showStatus('Cargando disponibilidad…','ok');
   try{await loadBookings();hideStatus();renderGrid();}
   catch(e){showStatus('Error al conectar: '+e.message,'err');renderGrid();}
@@ -213,7 +213,20 @@ function renderWeekLabel(){
     m.toLocaleDateString('es-MX',{day:'numeric',month:'short'})+' – '+
     f.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
 }
-async function changeWeek(dir){weekOff+=dir;renderWeekLabel();renderGrid();}
+async function changeWeek(dir){weekOff+=dir;renderWeekLabel();renderGrid();updateTodayBtn();}
+function goToday(){
+  if(weekOff===0) return;
+  weekOff=0;
+  renderWeekLabel();
+  renderGrid();
+  updateTodayBtn();
+}
+function updateTodayBtn(){
+  const btn=document.getElementById('btn-today');
+  if(!btn) return;
+  if(weekOff===0){btn.classList.add('at-today');btn.title='Ya estás en la semana actual';}
+  else{btn.classList.remove('at-today');btn.title='Ir a la semana actual';}
+}
 
 function renderGrid(loading=false){
   const g=document.getElementById('grid');g.innerHTML='';
