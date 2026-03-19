@@ -1,4 +1,4 @@
-const PROXY = 'https://vr-lab-proxy.6z5fznmp4.workers.dev';
+const PROXY = 'https://vr-lab-proxy.6z5fznmp4m.workers.dev';
 const ADMIN_PIN = '2026';
 
 const DAYS  = ['Lun','Mar','Mié','Jue','Vie'];
@@ -77,21 +77,17 @@ async function proxyGet(params={}) {
   }
 }
 async function proxyPost(fields){
-  const r=await fetch(PROXY,{ 
-    method:'POST', 
-    headers:{'Content-Type':'application/json'}, 
-    body:JSON.stringify({fields}) 
-  });
-  const text=await r.text(); 
-  try{ 
-    const data=JSON.parse(text); 
-    if(data.id) return data; 
-    throw new Error(data.error?.message||'Error al guardar'); 
-  }catch(e){ 
-    if(e.message==='Error al guardar') throw e; 
-    console.log('POST error:',text.slice(0,200)); 
-    throw new Error('Respuesta inválida del servidor'); 
-  } 
+  const r=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
+  const text=await r.text();
+  try{
+    const data=JSON.parse(text);
+    if(data.id) return data;
+    throw new Error(data.error?.message||'Error al guardar');
+  }catch(e){
+    if(e.message==='Error al guardar') throw e;
+    console.log('POST error:',text.slice(0,200));
+    throw new Error('Respuesta inválida del servidor');
+  }
 }
 async function proxyPatch(id,fields){
   const r=await fetch(`${PROXY}?id=${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
@@ -116,7 +112,7 @@ async function loadBookings(){
     const f=rec.fields;
     if(!f.SlotKey)continue;
     if(f.Status==='Blocked'){mBlocked[f.SlotKey]=rec.id;}
-    else if(f.Status==='Confirmed'){ 
+    else if(f.Status==='Confirmed'){
       bookings[f.SlotKey]={
         id:rec.id,
         profesor:f.Profesor||'',
@@ -156,7 +152,7 @@ async function saveBooking(key,data){
   return resp.id;
 }
 
-async function cancelOnServer(id){await proxyPatch(id,{Status:'Cancelled'});} 
+async function cancelOnServer(id){await proxyPatch(id,{Status:'Cancelled'});}
 
 async function blockOnServer(key,wOff,dIdx,pLabel,pTime){
   const cd=getCellDate(wOff,dIdx);
@@ -381,9 +377,10 @@ function exportCSV(){
     const cd=getCellDate(b.wOff,b.dIdx);
     const fecha=cd.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'});
     return[b.grupo,b.materia,fecha,b.pTime.split('–')[0].trim(),b.actividad,b.profesor,b.aprendizaje,b.observaciones||'']
-      .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
   });
-  const csv=[headers.join(',')].concat(rows).join('\n');
+  const csv=[headers.join(',')].concat(rows).join('
+');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
