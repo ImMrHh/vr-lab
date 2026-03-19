@@ -19,9 +19,11 @@ const TEACHING = {0:['P1','P6','P8'],1:['P1','P2','P6','P7'],2:['P1','P6','P8'],
 const HOLIDAYS = new Set([
   '2025-09-01','2025-09-12','2025-10-30','2025-12-12',
   '2026-01-01','2026-01-02','2026-02-02',
+  '2026-03-27','2026-05-01','2026-05-29','2026-06-26',
   ...Array.from({length:19},(_,i)=>{const d=new Date(2025,11,22);d.setDate(d.getDate()+i);return d.toISOString().slice(0,10);}),
-  ...Array.from({length:9},(_,i)=>`2026-04-${String(2+i).padStart(2,'0')}`),
+  ...Array.from({length:10},(_,i)=>`2026-04-${String(1+i).padStart(2,'0')}`),
 ]);
+const SCHOOL_END = new Date(2026, 6, 15); // July 15, 2026
 
 let isAdmin=false,weekOff=0,currentView='grid',pinVal='';
 let bookings={},mBlocked={},pendingModal=null;
@@ -36,6 +38,7 @@ const slotKey=(w,d,p)=>`${dStr(getCellDate(w,d))}_${p}`;
 const isToday=(w,d)=>{const dt=getCellDate(w,d),n=new Date();n.setHours(0,0,0,0);return dt.getTime()===n.getTime();};
 const isPast=(w,d,t)=>{const dt=getCellDate(w,d);const startTime=t.split('–')[0];dt.setHours(parseInt(startTime),parseInt(startTime.split(':')[1]||'0'),0,0);return dt<new Date();};
 const isTooFar=(w,d)=>{const l=new Date();l.setDate(l.getDate()+30);return getCellDate(w,d)>l;};
+const isPastSchoolEnd=(w,d)=>getCellDate(w,d)>SCHOOL_END;
 
 function showToast(msg,type='ok'){
   const t=document.getElementById('toast');
@@ -213,6 +216,7 @@ function renderGrid(loading=false){
       const teaching=(TEACHING[di]||[]).includes(row.label);
       const past=isPast(weekOff,di,row.time);
       const far=isTooFar(weekOff,di);
+      const pastEnd=isPastSchoolEnd(weekOff,di);
       const booked=bookings[key];
       const blocked=mBlocked.hasOwnProperty(key);
       if(hol){cell.className='slot slot-holiday';cell.title='Día no hábil';}
@@ -227,9 +231,10 @@ function renderGrid(loading=false){
         cell.innerHTML=`<span class="s-text">${esc(b.grupo)} · ${esc(b.materia)}</span><span class="s-sub">${esc(b.profesor)}</span>`;
         cell.title=`${esc(b.profesor)} · ${esc(b.grupo)} · ${esc(b.materia)}${isAdmin?'\nClic para cancelar':''}`;
         if(isAdmin)cell.onclick=()=>doCancel(key,b);
-      }else if(past||far){
+      }else if(past||far||pastEnd){
         cell.className='slot slot-past';
-        cell.title=past?'Periodo pasado':'Fuera de rango';
+        cell.innerHTML=`<span class="s-text" style="color:var(--gray-400);font-weight:400;font-size:10px">—</span>`;
+        cell.title=past?'Periodo pasado':pastEnd?'Fuera del ciclo escolar':'Fuera de rango (máx. 30 días)';
       }else{
         cell.className='slot slot-free'+(isAdmin?' admin':'');
         if(isAdmin){
