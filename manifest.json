@@ -1,0 +1,12 @@
+{
+  "name": "R. Virtual · CEAM",
+  "short_name": "VR Lab",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F0F4F8",
+  "theme_color": "#1D9E75",
+  "description": "Booking calendar for the VR Lab at CEAM",
+  "icons": [
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}

@@ -4,6 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>R. Virtual · CUAM</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#1D9E75"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="style.css"/>
 <script>if(localStorage.getItem('vr-dark-mode')==='true')document.documentElement.setAttribute('data-theme','dark');</script>
@@ -144,8 +147,20 @@
   </div>
 </div>
 
+<div class="modal-bg hidden" id="confirm-modal" onclick="if(event.target===this)closeConfirmDialog()">
+  <div class="confirm-modal">
+    <h2 id="confirm-title"></h2>
+    <div class="modal-sub" id="confirm-message"></div>
+    <div class="modal-actions">
+      <button class="btn" style="flex:1" id="confirm-cancel-btn" onclick="closeConfirmDialog()">Cancelar</button>
+      <button class="btn" style="flex:1" id="confirm-action-btn"></button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="app.js"></script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}</script>
 </body>
 </html>
