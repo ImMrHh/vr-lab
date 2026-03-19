@@ -383,37 +383,56 @@ async function confirmBooking(){
 }
 
 async function doCancel(key,b){
-  if(!confirm(`¿Cancelar reserva?\n${b.profesor} — ${b.grupo} · ${b.materia}\n${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${b.pLabel}`))return;
-  try{
-    if(b.id)await cancelOnServer(b.id);
-    delete bookings[key];renderGrid();
-    if(currentView==='list')renderList();
-    showToast('Reserva cancelada');
-  }catch(e){showToast('Error: '+e.message,'err');}
+  showConfirmDialog(
+    '¿Cancelar reserva?',
+    `${b.profesor} — ${b.grupo} · ${b.materia}<br>${FDAYS[b.dIdx]}, ${fmtDate(b.wOff,b.dIdx)} · ${b.pLabel}`,
+    'Cancelar reserva','danger',
+    async()=>{
+      try{
+        if(b.id)await cancelOnServer(b.id);
+        delete bookings[key];renderGrid();
+        if(currentView==='list')renderList();
+        showToast('Reserva cancelada');
+      }catch(e){showToast('Error: '+e.message,'err');}
+    }
+  );
 }
 
 async function doUnblock(key){
-  try{
-    if(mBlocked[key])await cancelOnServer(mBlocked[key]);
-    delete mBlocked[key];renderGrid();showToast('Slot desbloqueado');
-  }catch(e){showToast('Error: '+e.message,'err');}
+  showConfirmDialog(
+    '¿Desbloquear slot?',
+    `Este slot quedará disponible para reservas.`,
+    'Desbloquear','primary',
+    async()=>{
+      try{
+        if(mBlocked[key])await cancelOnServer(mBlocked[key]);
+        delete mBlocked[key];renderGrid();showToast('Slot desbloqueado');
+      }catch(e){showToast('Error: '+e.message,'err');}
+    }
+  );
 }
 
 async function doBlock(key,wOff,dIdx,pLabel,pTime){
-  if(!confirm(`¿Bloquear ${pLabel} del ${FDAYS[dIdx]}, ${fmtDate(wOff,dIdx)}?`))return;
-  try{
-    const conflict=await checkConflict(key);
-    if(conflict){
-      showToast('⚠️ Este periodo ya fue reservado por otro usuario','err');
-      await loadBookings();
-      renderGrid();
-      return;
+  showConfirmDialog(
+    '¿Bloquear slot?',
+    `${pLabel} · ${FDAYS[dIdx]}, ${fmtDate(wOff,dIdx)}`,
+    'Bloquear','danger',
+    async()=>{
+      try{
+        const conflict=await checkConflict(key);
+        if(conflict){
+          showToast('⚠️ Este periodo ya fue reservado por otro usuario','err');
+          await loadBookings();
+          renderGrid();
+          return;
+        }
+        const id=await blockOnServer(key,wOff,dIdx,pLabel,pTime);
+        mBlocked[key]=id;
+        renderGrid();
+        showToast('Slot bloqueado');
+      }catch(e){showToast('Error: '+e.message,'err');}
     }
-    const id=await blockOnServer(key,wOff,dIdx,pLabel,pTime);
-    mBlocked[key]=id;
-    renderGrid();
-    showToast('Slot bloqueado');
-  }catch(e){showToast('Error: '+e.message,'err');}
+  );
 }
 
 function renderList(){
@@ -633,13 +652,33 @@ function exitAdmin(){
 
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
+    if(!document.getElementById('confirm-modal').classList.contains('hidden')){closeConfirmDialog();return;}
     if(!document.getElementById('modal').classList.contains('hidden'))closeModal();
     else if(!document.getElementById('pin-screen').classList.contains('hidden'))hidePinScreen();
+  }
+  if(e.key==='Enter'){
+    if(!document.getElementById('confirm-modal').classList.contains('hidden')){document.getElementById('confirm-action-btn').click();return;}
   }
   if(document.getElementById('pin-screen').classList.contains('hidden'))return;
   if(e.key>='0'&&e.key<='9')pinPress(e.key);
   else if(e.key==='Backspace')pinPress('del');
 });
+
+let _confirmCallback=null;
+function showConfirmDialog(title,message,actionText,actionClass,onConfirm){
+  _confirmCallback=onConfirm;
+  document.getElementById('confirm-title').textContent=title;
+  document.getElementById('confirm-message').innerHTML=message;
+  const btn=document.getElementById('confirm-action-btn');
+  btn.textContent=actionText;
+  btn.className='btn '+(actionClass==='danger'?'btn-danger':'btn-primary');
+  btn.onclick=()=>{closeConfirmDialog();if(_confirmCallback)_confirmCallback();};
+  document.getElementById('confirm-modal').classList.remove('hidden');
+}
+function closeConfirmDialog(){
+  document.getElementById('confirm-modal').classList.add('hidden');
+  _confirmCallback=null;
+}
 
 function toggleTheme(){
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
@@ -658,3 +697,6 @@ function initTheme(){
   if(btn&&document.documentElement.getAttribute('data-theme')==='dark')btn.textContent='☀️';
 }
 initTheme();
+
+window.addEventListener('offline',()=>showToast('Sin conexión — modo offline','err'));
+window.addEventListener('online',()=>{showToast('Conexión restaurada');});

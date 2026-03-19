@@ -177,3 +177,9 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F8;color:var(--gray-800);m
 [data-theme="dark"] .stat-delta.negative{background:#450a0a;color:#fca5a5}
 [data-theme="dark"] .stat-bar-wrap{background:var(--gray-100)}
 [data-theme="dark"] .stat-rank-name{color:var(--gray-800)}
+.confirm-modal{background:white;border-radius:14px;box-shadow:var(--shadow-md);padding:24px;width:380px;max-width:100%}
+.confirm-modal h2{font-size:17px;font-weight:600;margin-bottom:4px}
+.btn-danger{background:var(--danger);color:white;border-color:var(--danger)}
+.btn-danger:hover{background:#b91c1c;border-color:#b91c1c}
+[data-theme="dark"] .confirm-modal{background:#1A1D27}
+[data-theme="dark"] .btn-danger:hover{background:#c91c1c;border-color:#c91c1c}
