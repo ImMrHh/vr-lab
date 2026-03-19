@@ -1,4 +1,4 @@
-const PROXY = 'https://vr-lab-proxy.6z5fznmp4.workers.dev';
+const PROXY = 'https://vr-lab-proxy.6z5fznmp4m.workers.dev';
 const ADMIN_PIN = '2026';
 
 const DAYS  = ['Lun','Mar','Mié','Jue','Vie'];
