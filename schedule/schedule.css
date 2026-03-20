@@ -284,15 +284,23 @@ body {
 .session-list { padding: 6px 0; }
 
 .session-row {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0 14px;
-  padding: 12px 18px;
   border-bottom: 1px solid var(--border);
+  cursor: pointer;
   transition: background 0.12s;
+  user-select: none;
 }
 .session-row:last-child { border-bottom: none; }
 .session-row:hover { background: var(--green-light); }
+.session-row:focus { outline: 2px solid var(--green); outline-offset: -2px; }
+
+/* Summary (always visible) */
+.session-summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0 14px;
+  padding: 12px 18px;
+  align-items: start;
+}
 
 .session-period {
   display: flex;
@@ -329,7 +337,7 @@ body {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 
 .session-grupo {
@@ -344,16 +352,49 @@ body {
   color: var(--green-dark);
 }
 
-.session-actividad {
-  font-size: 13px;
-  color: var(--text);
-  margin-bottom: 3px;
-  line-height: 1.4;
+.session-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
 }
+.session-row.expanded .session-hint { display: none; }
 
-.session-profesor {
+/* Chevron indicator */
+.session-chevron {
   font-size: 12px;
   color: var(--text-muted);
+  padding-top: 3px;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+  line-height: 1;
+}
+.session-row.expanded .session-chevron { transform: rotate(90deg); }
+
+/* Detail panel (collapsed by default) */
+.session-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.28s ease;
+}
+.session-row.expanded .session-detail { max-height: 300px; }
+
+.session-detail-inner {
+  padding: 10px 18px 14px;
+  background: var(--green-light);
+  border-top: 1px solid var(--border);
+}
+
+.detail-item {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  margin-bottom: 5px;
+}
+.detail-item:last-child { margin-bottom: 0; }
+
+.detail-label {
+  font-weight: 600;
+  color: var(--text);
 }
 
 /* ── Toast ───────────────────────────────────────────────────────────────── */
@@ -384,9 +425,10 @@ body {
   .controls-bar    { flex-direction: column; align-items: stretch; }
   .filter-group    { min-width: unset; }
   .week-nav        { justify-content: center; }
-  .session-row     { grid-template-columns: auto 1fr; gap: 0 10px; padding: 10px 14px; }
-  .session-period { min-width: 42px; }
+  .session-summary { grid-template-columns: auto 1fr auto; gap: 0 10px; padding: 10px 14px; }
+  .session-period  { min-width: 42px; }
   .day-header      { padding: 10px 14px; }
+  .session-detail-inner { padding: 10px 14px 12px; }
 }
 
 /* ── Dark mode component overrides ──────────────────────────────────────── */
@@ -399,6 +441,9 @@ body {
 [data-theme="dark"] .day-date       { color: var(--green-mid); }
 [data-theme="dark"] .session-row:hover { background: var(--green-light); }
 [data-theme="dark"] .session-row    { border-bottom-color: var(--border); }
+[data-theme="dark"] .session-detail-inner { background: var(--green-light); border-top-color: var(--border); }
+[data-theme="dark"] .detail-item    { color: var(--text); }
+[data-theme="dark"] .detail-label   { color: var(--text); }
 [data-theme="dark"] .topbar         { background: var(--surface); border-bottom-color: var(--border); }
 [data-theme="dark"] .btn-theme:hover { background: var(--green-light); }
 [data-theme="dark"] ::-webkit-scrollbar       { width: 8px; height: 8px; }

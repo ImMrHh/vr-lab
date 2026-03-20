@@ -93,17 +93,26 @@ async function fetchAllBookings() {
     offset = nextOffset;
   } while (offset);
 
-  // Only keep Confirmed (not Blocked)
+  // Only keep Confirmed (not Blocked) and skip admin/maintenance entries
   return all
-    .filter(rec => rec.fields && rec.fields.Status === 'Confirmed')
+    .filter(rec => {
+      if (!rec.fields) return false;
+      if (rec.fields.Status !== 'Confirmed') return false;
+      if (rec.fields.Profesor === 'Bloqueado') return false;
+      if (rec.fields.Grupo === '-') return false;
+      if (rec.fields.Materia === '-') return false;
+      if (rec.fields.Actividad === '-') return false;
+      return true;
+    })
     .map(rec => ({
-      grupo:    rec.fields.Grupo    || '',
-      materia:  rec.fields.Materia  || '',
-      profesor: rec.fields.Profesor || '',
-      actividad:rec.fields.Actividad|| '',
-      fecha:    rec.fields.Fecha    || '',
-      hora:     rec.fields.Hora     || '',
-      period:   rec.fields.Period   || '',
+      grupo:       rec.fields.Grupo       || '',
+      materia:     rec.fields.Materia     || '',
+      profesor:    rec.fields.Profesor    || '',
+      actividad:   rec.fields.Actividad   || '',
+      aprendizaje: rec.fields['Aprendizaje esperado/producto'] || '',
+      fecha:       rec.fields.Fecha       || '',
+      hora:        rec.fields.Hora        || '',
+      period:      rec.fields.Period      || '',
     }));
 }
 
@@ -234,18 +243,28 @@ function renderWeek() {
     sessions.forEach(s => {
       const time = s.hora || getPeriodTime(s.period);
       html += `
-    <div class="session-row">
-      <div class="session-period">
-        <span class="period-badge">${esc(s.period)}</span>
-        <span class="period-time">${esc(time)}</span>
-      </div>
-      <div class="session-body">
-        <div class="session-header">
-          <span class="session-grupo">${esc(s.grupo)}</span>
-          <span class="session-materia">${esc(s.materia)}</span>
+    <div class="session-row" onclick="toggleSession(this)" role="button" tabindex="0"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSession(this);}" aria-expanded="false">
+      <div class="session-summary">
+        <div class="session-period">
+          <span class="period-badge">${esc(s.period)}</span>
+          <span class="period-time">${esc(time)}</span>
         </div>
-        <div class="session-actividad">${esc(s.actividad)}</div>
-        <div class="session-profesor">👤 ${esc(s.profesor)}</div>
+        <div class="session-body">
+          <div class="session-header">
+            <span class="session-grupo">${esc(s.grupo)}</span>
+            <span class="session-materia">${esc(s.materia)}</span>
+          </div>
+          <div class="session-hint">Ver más</div>
+        </div>
+        <span class="session-chevron" aria-hidden="true">▸</span>
+      </div>
+      <div class="session-detail" aria-hidden="true">
+        <div class="session-detail-inner">
+          <div class="detail-item">👨‍🏫 <span class="detail-label">Docente:</span> ${esc(s.profesor)}</div>
+          <div class="detail-item">📝 <span class="detail-label">Actividad:</span> ${esc(s.actividad)}</div>
+          ${s.aprendizaje ? `<div class="detail-item">🎯 <span class="detail-label">Aprendizaje esperado:</span> ${esc(s.aprendizaje)}</div>` : ''}
+        </div>
       </div>
     </div>`;
     });
@@ -283,6 +302,24 @@ function renderError(msg) {
   <div class="error-sub">${esc(msg)}</div>
   <button class="btn btn-retry" onclick="init()">Reintentar</button>
 </div>`;
+}
+
+// ── Session expand/collapse ────────────────────────────────────────────────
+function toggleSession(row) {
+  const isOpen = row.classList.contains('expanded');
+  // Collapse any currently open row (single-expand behaviour)
+  document.querySelectorAll('.session-row.expanded').forEach(r => {
+    r.classList.remove('expanded');
+    r.setAttribute('aria-expanded', 'false');
+    const detail = r.querySelector('.session-detail');
+    if (detail) detail.setAttribute('aria-hidden', 'true');
+  });
+  if (!isOpen) {
+    row.classList.add('expanded');
+    row.setAttribute('aria-expanded', 'true');
+    const detail = row.querySelector('.session-detail');
+    if (detail) detail.setAttribute('aria-hidden', 'false');
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
