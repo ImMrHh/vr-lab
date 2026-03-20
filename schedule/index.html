@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Horario VR · CUAM</title>
+<meta name="description" content="Consulta el horario del Laboratorio de Realidad Virtual del CUAM."/>
+<meta name="theme-color" content="#1D9E75"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="schedule.css"/>
+<script>if(localStorage.getItem('vr-dark-mode')==='true')document.documentElement.setAttribute('data-theme','dark');</script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">VR</div>
+    <div>
+      <div class="brand-title">Lab. Realidad Virtual</div>
+      <div class="brand-sub">CUAM · Horario de sesiones</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-theme" id="theme-toggle" onclick="toggleTheme()" title="Cambiar tema" aria-label="Cambiar tema">🌙</button>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="controls-bar">
+    <div class="filter-group">
+      <label for="grupo-filter" class="filter-label">Grupo</label>
+      <select id="grupo-filter" class="filter-select" onchange="onGrupoChange()">
+        <option value="">Todos los grupos</option>
+      </select>
+    </div>
+    <div class="week-nav">
+      <button class="btn btn-nav" onclick="changeWeek(-1)" aria-label="Semana anterior">← Anterior</button>
+      <button class="btn btn-today" id="btn-today" onclick="goToday()">Esta semana</button>
+      <button class="btn btn-nav" onclick="changeWeek(1)" aria-label="Semana siguiente">Siguiente →</button>
+    </div>
+  </section>
+
+  <div class="week-label-row">
+    <span class="week-label" id="week-label"></span>
+  </div>
+
+  <div id="content"></div>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="schedule.js"></script>
+</body>
+</html>
