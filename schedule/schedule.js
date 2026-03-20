@@ -101,6 +101,7 @@ async function fetchAllBookings() {
       if (rec.fields.Profesor === 'Bloqueado') return false;
       if (rec.fields.Grupo === '-') return false;
       if (rec.fields.Materia === '-') return false;
+      if ((rec.fields.Materia || '').toLowerCase() === 'admin') return false;
       if (rec.fields.Actividad === '-') return false;
       return true;
     })
