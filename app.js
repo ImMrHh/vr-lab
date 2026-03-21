@@ -208,7 +208,7 @@ async function enterApp(){
   renderWeekLabel();renderGrid(true);updateTodayBtn();
   showStatus('Cargando disponibilidad…','ok');
   try{await loadBookings();hideStatus();renderGrid();}
-  catch(e){showStatus('Error al conectar: '+e.message,'err');renderGrid();}
+catch(e){showStatus('Error al conectar: '+e.message,'err');renderGrid();}
 }
 
 function renderWeekLabel(){
@@ -298,6 +298,8 @@ function openModal(wOff,dIdx,pLabel,pTime,key){
   document.getElementById('f-aprendizaje').value='';
   document.getElementById('f-observaciones').value='';
   populateTeachers();
+  document.getElementById('f-grupo-row').classList.remove('hidden');
+  document.getElementById('f-materia').innerHTML='<option value="">Seleccionar materia…</option>';
   document.getElementById('f-profesor').value='';
   document.getElementById('f-profesor').onchange=onTeacherChange;
   document.getElementById('f-materia').onchange=onSubjectChange;
@@ -340,6 +342,15 @@ function onSubjectChange(){
   const teacher=document.getElementById('f-profesor').value;
   const subject=document.getElementById('f-materia').value;
   const grpSel=document.getElementById('f-grupo');
+  const grpRow=document.getElementById('f-grupo-row');
+  if(subject==='Admin'){
+    grpRow.classList.add('hidden');
+    grpSel.innerHTML='<option value="-">-</option>';
+    grpSel.value='-';
+    grpSel.disabled=false;
+    return;
+  }
+  grpRow.classList.remove('hidden');
   grpSel.innerHTML='<option value="">Seleccionar grupo…</option>';
   if(!teacher||!subject||!TEACHER_DATA[teacher]||!TEACHER_DATA[teacher].subjects[subject]){grpSel.disabled=true;return;}
   const groups=TEACHER_DATA[teacher].subjects[subject];
@@ -361,7 +372,9 @@ async function confirmBooking(){
     aprendizaje:document.getElementById('f-aprendizaje').value.trim(),
     observaciones:document.getElementById('f-observaciones').value.trim(),
   };
-  if(['profesor','grupo','materia','actividad','aprendizaje'].some(k=>!vals[k])){
+  const required=['profesor','materia','actividad','aprendizaje'];
+  if(vals.materia!=='Admin') required.push('grupo');
+  if(required.some(k=>!vals[k])){
     showToast('Por favor llena todos los campos requeridos','err');return;
   }
   const btn=document.getElementById('confirm-btn');
