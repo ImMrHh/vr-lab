@@ -51,7 +51,8 @@ const TEACHER_DATA = {
   'Patricia': { subjects: { 'Historia': ['101','102','103','104','105','201','202','203','204','205','206'] } },
   'Cecilia': { subjects: { 'Historia': ['101','102','103','104','105','201','202','203','204','205','206','301','302','303','304','305'], 'FCE': ['101','102','103','104','105','201','202','203','204','205','206','301','302','303','304','305'], 'Socioemoc.': ['101','102','103','104','105','201','202','203','204','205','206','301','302','303','304','305'] } },
   'José Antonio': { subjects: { 'Tecnología': ['101','102','103','104','105','201','202','203','204','205','206'] } },
-  'Henrik': { subjects: { 'Tecnología': ['301','302','303','304','305'], 'Admin': ['101','102','103','104','105','201','202','203','204','205','206','301','302','303','304','305','1A','1B','2A','2B','3A','3B','Robótica'] } },
+  'Henrik': { subjects: { 'Tecnología': ['301','302','303','304','305'], 'Admin': ['101','102','103','104','105','201','202','203','204','205','206','301','302','303','304','305','1A','1B','2A','2B','3A','3B','Robótica'], 'Demo': [] } },
+  'Jessica': { subjects: { 'Demo': [] } },
   'Luis': { subjects: { 'Educ. Física': ['101','102','103','104','105','301','302'] } },
   'Eduardo': { subjects: { 'Educ. Física': ['201','202','203','204','205','206','303','304','305'] } },
   'Mariana': { subjects: { 'Francés': ['101','102','103','104','105','201','202','203','204','205','206','301','302','303','304','305'] } },
@@ -168,6 +169,7 @@ async function saveBooking(key,data){
     DayIndex:data.dIdx,
     SlotKey:key,
     Status:'Confirmed',
+    TipoSesion:data.tipoSesion||'Clase',
   };
   const resp=await proxyPost(fields);
   return resp.id;
@@ -297,6 +299,8 @@ function openModal(wOff,dIdx,pLabel,pTime,key){
   document.getElementById('f-actividad').value='';
   document.getElementById('f-aprendizaje').value='';
   document.getElementById('f-observaciones').value='';
+  // Reset admin extras
+  hideAdminExtras();
   populateTeachers();
   document.getElementById('f-grupo-row').classList.remove('hidden');
   document.getElementById('f-materia').innerHTML='<option value="">Seleccionar materia…</option>';
@@ -323,6 +327,9 @@ function populateTeachers(){
 function onTeacherChange(){
   const teacher=document.getElementById('f-profesor').value;
   const matSel=document.getElementById('f-materia');
+  // Restore grupo dropdown in case we're coming from Demo (where it's a text input)
+  restoreGrupoDropdown();
+  hideAdminExtras();
   const grpSel=document.getElementById('f-grupo');
   matSel.innerHTML='<option value="">Seleccionar materia…</option>';
   grpSel.innerHTML='<option value="">Seleccionar grupo…</option>';
@@ -341,15 +348,40 @@ function onTeacherChange(){
 function onSubjectChange(){
   const teacher=document.getElementById('f-profesor').value;
   const subject=document.getElementById('f-materia').value;
-  const grpSel=document.getElementById('f-grupo');
   const grpRow=document.getElementById('f-grupo-row');
+
+  // Always restore dropdown first (covers Demo -> Admin/other transitions)
+  restoreGrupoDropdown();
+  const grpSel=document.getElementById('f-grupo');
+
+  // Hide extra Admin fields by default
+  hideAdminExtras();
+
   if(subject==='Admin'){
     grpRow.classList.add('hidden');
     grpSel.innerHTML='<option value="-">-</option>';
     grpSel.value='-';
     grpSel.disabled=false;
+    showAdminExtras();
     return;
   }
+
+  if(subject==='Demo'){
+    // Replace grupo dropdown with free text input
+    grpRow.classList.remove('hidden');
+    const label=grpRow.querySelector('label');
+    label.innerHTML='Escuela visitante <span class="req">*</span>';
+    grpRow.innerHTML='';
+    grpRow.appendChild(label);
+    const inp=document.createElement('input');
+    inp.type='text';inp.id='f-grupo-demo';inp.placeholder='Nombre de la escuela visitante…';
+    inp.style.cssText='width:100%;padding:8px 12px;border:1px solid var(--gray-200);border-radius:8px;font-size:14px;font-family:inherit;background:var(--bg-card);color:var(--text-primary);box-sizing:border-box';
+    grpRow.appendChild(inp);
+    setTimeout(()=>inp.focus(),50);
+    return;
+  }
+
+  // Default branch - grpSel already restored at top of function
   grpRow.classList.remove('hidden');
   grpSel.innerHTML='<option value="">Seleccionar grupo…</option>';
   if(!teacher||!subject||!TEACHER_DATA[teacher]||!TEACHER_DATA[teacher].subjects[subject]){grpSel.disabled=true;return;}
@@ -363,17 +395,98 @@ function onSubjectChange(){
   if(groups.length===1){grpSel.value=groups[0];}
 }
 
+function restoreGrupoDropdown(){
+  const grpRow=document.getElementById('f-grupo-row');
+  if(document.getElementById('f-grupo')) return; // already a select
+  grpRow.innerHTML=`
+    <label>Grupo <span class="req">*</span></label>
+    <select id="f-grupo" disabled>
+      <option value="">Seleccionar grupo…</option>
+    </select>`;
+}
+
+function showAdminExtras(){
+  document.getElementById('admin-session-row').classList.remove('hidden');
+  onAdminTypeChange(); // render initial state
+}
+function hideAdminExtras(){
+  const row=document.getElementById('admin-session-row');
+  if(row) row.classList.add('hidden');
+  const guestRow=document.getElementById('admin-guest-row');
+  if(guestRow) guestRow.classList.add('hidden');
+  // Restore grupo label if coming from Demo
+  const grpRow=document.getElementById('f-grupo-row');
+  const label=grpRow.querySelector('label');
+  if(label) label.innerHTML='Grupo <span class="req">*</span>';
+  restoreGrupoDropdown();
+}
+
+function onAdminTypeChange(){
+  const type=document.getElementById('f-admin-type').value;
+  const guestRow=document.getElementById('admin-guest-row');
+  if(type==='Planeación'){
+    guestRow.classList.remove('hidden');
+    const guestSel=document.getElementById('f-admin-guest');
+    guestSel.innerHTML='<option value="">Seleccionar profesor…</option>';
+    Object.keys(TEACHER_DATA).sort().forEach(name=>{
+      if(name==='Henrik') return; // no se invita a sí mismo
+      const opt=document.createElement('option');
+      opt.value=name;opt.textContent=name;
+      guestSel.appendChild(opt);
+    });
+  } else {
+    guestRow.classList.add('hidden');
+  }
+}
+
 async function confirmBooking(){
+  const subject=document.getElementById('f-materia').value.trim();
+
+  // Resolve grupo: Demo uses free text input, Admin uses '-', others use select
+  let grupo='';
+  if(subject==='Demo'){
+    const demoInp=document.getElementById('f-grupo-demo');
+    grupo=demoInp?demoInp.value.trim():'';
+  } else if(subject==='Admin'){
+    grupo='-';
+  } else {
+    grupo=document.getElementById('f-grupo').value.trim();
+  }
+
+  // Resolve TipoSesion and override Actividad for Planeación
+  let tipoSesion='Clase';
+  let actividadOverride=null;
+  if(subject==='Demo'){
+    tipoSesion='Demo';
+  } else if(subject==='Admin'){
+    const adminType=document.getElementById('f-admin-type')?.value||'Mantenimiento';
+    if(adminType==='Planeación'){
+      tipoSesion='Planeación';
+      const guestProf=document.getElementById('f-admin-guest')?.value||'';
+      actividadOverride=guestProf?`Planeación con ${guestProf}`:'Planeación';
+    } else {
+      tipoSesion='Admin';
+    }
+  }
+
   const vals={
     profesor:document.getElementById('f-profesor').value.trim(),
-    grupo:document.getElementById('f-grupo').value.trim(),
-    materia:document.getElementById('f-materia').value.trim(),
-    actividad:document.getElementById('f-actividad').value.trim(),
+    grupo,
+    materia:subject,
+    actividad:actividadOverride||document.getElementById('f-actividad').value.trim(),
     aprendizaje:document.getElementById('f-aprendizaje').value.trim(),
     observaciones:document.getElementById('f-observaciones').value.trim(),
+    tipoSesion,
   };
-  const required=['profesor','materia','actividad','aprendizaje'];
-  if(vals.materia!=='Admin') required.push('grupo');
+
+  const required=['profesor','materia','aprendizaje'];
+  if(subject!=='Admin') required.push('grupo');
+  if(!actividadOverride) required.push('actividad');
+  // For Planeación, validate guest teacher selected
+  if(tipoSesion==='Planeación'){
+    const guest=document.getElementById('f-admin-guest')?.value||'';
+    if(!guest){showToast('Selecciona el profesor invitado','err');return;}
+  }
   if(required.some(k=>!vals[k])){
     showToast('Por favor llena todos los campos requeridos','err');return;
   }
@@ -394,7 +507,8 @@ async function confirmBooking(){
     bookings[pendingModal.key]={...vals,...pendingModal,id:itemId};
     closeModal();renderGrid();
     if(currentView==='list')renderList();
-    showToast(`¡Reservado! ${vals.profesor} — ${vals.grupo} · ${vals.materia}`);
+    const label=subject==='Demo'?`Demo — ${vals.grupo}`:subject==='Admin'?`Admin (${tipoSesion})`:`${vals.grupo} · ${vals.materia}`;
+    showToast(`¡Reservado! ${vals.profesor} — ${label}`);
   }catch(e){showToast('Error al guardar: '+e.message,'err');}
   finally{btn.disabled=false;btn.textContent='Confirmar reserva';}
 }

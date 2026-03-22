@@ -128,6 +128,23 @@
         <option value="">Seleccionar materia…</option>
       </select>
     </div>
+    <!-- Admin session type (visible only when Materia = Admin) -->
+    <div class="form-row hidden" id="admin-session-row">
+      <div class="form-group">
+        <label>Tipo de sesión Admin <span class="req">*</span></label>
+        <select id="f-admin-type" onchange="onAdminTypeChange()">
+          <option value="Mantenimiento">Mantenimiento</option>
+          <option value="Planeación">Planeación</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="form-group hidden" id="admin-guest-row">
+        <label>Profesor invitado <span class="req">*</span></label>
+        <select id="f-admin-guest">
+          <option value="">Seleccionar profesor…</option>
+        </select>
+      </div>
+    </div>
     <div class="form-group">
       <label>Actividad <span class="req">*</span></label>
       <textarea id="f-actividad" placeholder="Describe la actividad en el laboratorio..."></textarea>
