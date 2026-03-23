@@ -1,5 +1,5 @@
-const PROXY = 'https://vr-lab-proxy.6z5fznmp4m.workers.dev';
-const ADMIN_PIN = '2026';
+const PROXY    = 'https://vr-lab-proxy.6z5fznmp4m.workers.dev';
+const AUTH_URL = 'https://vr-lab-auth.6z5fznmp4m.workers.dev';
 
 const DAYS  = ['Lun','Mar','Mié','Jue','Vie'];
 const FDAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes'];
@@ -27,6 +27,8 @@ const SCHOOL_END = new Date(2026, 6, 15); // July 15, 2026
 
 let isAdmin=false,weekOff=0,currentView='grid',pinVal='';
 let bookings={},mBlocked={},pendingModal=null;
+let role=null;   // null | 'profesor' | 'coordinacion' | 'admin'
+let authToken=sessionStorage.getItem('vr-booking-token')||null;
 
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 
@@ -92,7 +94,7 @@ async function proxyGetUrl(url){
 async function proxyPost(fields){
   const r=await fetch(PROXY,{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${authToken}`},
     body:JSON.stringify({fields})
   });
   const text=await r.text();
@@ -106,7 +108,7 @@ async function proxyPost(fields){
   }
 }
 async function proxyPatch(id,fields){
-  const r=await fetch(`${PROXY}?id=${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
+  const r=await fetch(`${PROXY}?id=${id}`,{method:'PATCH',headers:{'Content-Type':'application/json','Authorization':`Bearer ${authToken}`},body:JSON.stringify({fields})});
   const text=await r.text();
   try{
     const data=JSON.parse(text);
@@ -263,33 +265,38 @@ function renderGrid(loading=false){
       const booked=bookings[key];
       const blocked=mBlocked.hasOwnProperty(key);
       if(hol){cell.className='slot slot-holiday';cell.title='Día no hábil';}
-      else if(teaching){cell.className='slot slot-teaching';cell.innerHTML=`<span class="s-text">Clase coordinador</span>`;}
+      else if(teaching){cell.className='slot slot-teaching';cell.innerHTML=`<span class="s-text">No disponible</span>`;}
       else if(blocked){
         cell.className='slot slot-blocked'+(isAdmin?' admin':'');
         cell.innerHTML=`<span class="s-text">Bloqueado</span>`;
         if(isAdmin){cell.title='Clic para desbloquear';cell.onclick=()=>doUnblock(key);}
       }else if(booked){
         const b=booked;
-        cell.className='slot slot-booked'+(isAdmin?' admin':'');
+        const canCancel=(role==='coordinacion'||role==='admin');
+        cell.className='slot slot-booked'+(canCancel?' admin':'');
         cell.innerHTML=`<span class="s-text">${esc(b.grupo)} · ${esc(b.materia)}</span><span class="s-sub">${esc(b.profesor)}</span>`;
-        cell.title=`${esc(b.profesor)} · ${esc(b.grupo)} · ${esc(b.materia)}${isAdmin?'\nClic para cancelar':''}`;
-        if(isAdmin)cell.onclick=()=>doCancel(key,b);
+        cell.title=`${esc(b.profesor)} · ${esc(b.grupo)} · ${esc(b.materia)}${canCancel?'\nClic para cancelar':''}`;
+        if(canCancel)cell.onclick=()=>doCancel(key,b);
       }else if(past||pastEnd){
         cell.className='slot slot-past';
         cell.innerHTML=`<span class="s-text" style="color:var(--gray-400);font-weight:400;font-size:10px">—</span>`;
         cell.title=past?'Periodo pasado':'Fuera del ciclo escolar';
       }else{
-        cell.className='slot slot-free'+(isAdmin?' admin':'');
-        if(isAdmin){
+        const canBook=(role==='profesor'||role==='coordinacion'||role==='admin');
+        cell.className='slot slot-free'+(canBook?' admin':'');
+        if(canBook){
           cell.innerHTML=`<span style="font-size:18px;color:var(--gray-200)">+</span>`;
           cell.onclick=()=>openModal(weekOff,di,row.label,row.time,key);
-          cell.oncontextmenu=(e)=>{e.preventDefault();doBlock(key,weekOff,di,row.label,row.time);};
+          // Block on right-click: admin only
+          if(isAdmin){
+            cell.oncontextmenu=(e)=>{e.preventDefault();doBlock(key,weekOff,di,row.label,row.time);};
+          }
         }
       }
       g.appendChild(cell);
     });
   });
-  document.getElementById('admin-hint').classList.toggle('hidden',!isAdmin);
+  document.getElementById('admin-hint').classList.toggle('hidden',!role);
 }
 
 function openModal(wOff,dIdx,pLabel,pTime,key){
@@ -581,6 +588,7 @@ function renderList(){
     return ROWS.findIndex(r=>r.label===p1)-ROWS.findIndex(r=>r.label===p2);
   });
   if(!entries.length){c.innerHTML='<p style="font-size:13px;color:var(--gray-400);padding:4px 0">No hay reservas registradas.</p>';return;}
+  const canCancel=(role==='coordinacion'||role==='admin');
   c.innerHTML=entries.map(([key,b])=>`
     <div class="booking-row">
       <div style="flex:1;min-width:0">
@@ -592,7 +600,7 @@ function renderList(){
       </div>
       <div class="b-actions">
         <span class="b-badge">Confirmada</span>
-        <button class="btn btn-sm" data-key="${key}">Cancelar</button>
+        ${canCancel?`<button class="btn btn-sm" data-key="${key}">Cancelar</button>`:''}
       </div>
     </div>
   `).join('');
@@ -735,23 +743,56 @@ function pinPress(v){
   if(v==='del'){pinVal=pinVal.slice(0,-1);document.getElementById('pin-error').textContent='';updateDots();return;}
   if(pinVal.length>=4)return;
   pinVal+=v;updateDots();
-  if(pinVal.length===4){
-    if(pinVal===ADMIN_PIN){enterAdmin();}
-    else{
+  if(pinVal.length===4){submitPin();}
+}
+async function submitPin(){
+  document.querySelectorAll('.pin-key').forEach(k=>k.disabled=true);
+  document.getElementById('pin-error').textContent='Verificando…';
+  try{
+    const r=await fetch(`${AUTH_URL}/auth`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({pin:pinVal})
+    });
+    const data=await r.json();
+    if(data.token){
+      authToken=data.token;
+      role=data.role;
+      sessionStorage.setItem('vr-booking-token',authToken);
+      sessionStorage.setItem('vr-booking-role',role);
+      enterRole(role);
+    }else{
       const dots=document.getElementById('pin-dots');
       dots.classList.add('shake');
       for(let i=0;i<4;i++)document.getElementById('d'+i).className='pin-dot error';
-      document.getElementById('pin-error').textContent='PIN incorrecto';
+      document.getElementById('pin-error').textContent=data.error||'PIN incorrecto';
       setTimeout(()=>{dots.classList.remove('shake');pinVal='';updateDots();},500);
     }
+  }catch(e){
+    document.getElementById('pin-error').textContent='Error de conexión';
+    setTimeout(()=>{pinVal='';updateDots();},500);
+  }finally{
+    document.querySelectorAll('.pin-key').forEach(k=>k.disabled=false);
   }
 }
-function enterAdmin(){
-  isAdmin=true;hidePinScreen();
-  document.getElementById('admin-badge').classList.remove('hidden');
+const ROLE_LABELS={'profesor':'Modo Profesor','coordinacion':'Coordinación','admin':'Admin'};
+const ROLE_COLORS={'profesor':'#065f46','coordinacion':'#7c3aed','admin':'#1e40af'};
+
+function enterRole(r){
+  isAdmin=(r==='admin');
+  role=r;
+  hidePinScreen();
+  // Badge
+  const badge=document.getElementById('admin-badge');
+  badge.textContent=ROLE_LABELS[r]||r;
+  badge.style.background=ROLE_COLORS[r]||'#1e40af';
+  badge.classList.remove('hidden');
+  // Exit button
   document.getElementById('exit-admin-btn').classList.remove('hidden');
   document.getElementById('admin-btn').classList.add('hidden');
+  // Tabs: profesor/coordinacion/admin all see grid+list+stats
   document.getElementById('view-tabs').classList.remove('hidden');
+  // Block button only for admin
   renderGrid();
 }
 function exportCSV(){
@@ -779,7 +820,12 @@ function exportCSV(){
   URL.revokeObjectURL(url);
   showToast('CSV exportado correctamente');
 }
-function exitAdmin(){
+function exitRole(){
+  try{fetch(`${AUTH_URL}/logout`,{method:'POST',headers:{Authorization:`Bearer ${authToken}`}});}catch(e){}
+  sessionStorage.removeItem('vr-booking-token');
+  sessionStorage.removeItem('vr-booking-role');
+  authToken=null;
+  role=null;
   isAdmin=false;
   document.getElementById('admin-badge').classList.add('hidden');
   document.getElementById('exit-admin-btn').classList.add('hidden');
@@ -850,3 +896,24 @@ initTheme();
 
 window.addEventListener('offline',()=>showToast('Sin conexión — modo offline','err'));
 window.addEventListener('online',()=>{showToast('Conexión restaurada');});
+
+// ── Init: restore session on reload ──────────────────────────────────────────
+(async () => {
+  if (authToken) {
+    try {
+      const r = await fetch(`${AUTH_URL}/auth/check`, {headers:{Authorization:`Bearer ${authToken}`}});
+      const d = await r.json();
+      if (d.valid && d.role) {
+        role = d.role;
+        sessionStorage.setItem('vr-booking-role', role);
+        enterRole(role);
+        return;
+      }
+    } catch(e) {}
+    // Token invalid or expired — clear everything
+    sessionStorage.removeItem('vr-booking-token');
+    sessionStorage.removeItem('vr-booking-role');
+    authToken = null;
+    role = null;
+  }
+})();

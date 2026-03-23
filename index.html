@@ -24,7 +24,7 @@
   <div class="topbar-right">
     <button class="btn-theme" id="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
     <span class="badge-admin hidden" id="admin-badge">Admin</span>
-    <button class="btn btn-sm hidden" id="exit-admin-btn" onclick="exitAdmin()">Salir de admin</button>
+    <button class="btn btn-sm hidden" id="exit-admin-btn" onclick="exitRole()">Salir</button>
     <button class="btn btn-sm hidden" id="admin-btn" onclick="showPin()">Admin</button>
   </div>
 </div>
@@ -43,7 +43,7 @@
 
 <div id="pin-screen" class="hidden">
   <div class="pin-card">
-    <h2>Acceso admin</h2>
+    <h2>Acceso al sistema</h2>
     <p>Ingresa tu PIN de 4 dígitos</p>
     <div class="pin-dots" id="pin-dots">
       <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
@@ -89,10 +89,10 @@
         <div class="legend">
           <div class="leg-item"><div class="leg-dot leg-dot-free"></div>Disponible</div>
           <div class="leg-item"><div class="leg-dot leg-dot-booked"></div>Reservado</div>
-          <div class="leg-item"><div class="leg-dot leg-dot-teaching"></div>Clase del coordinador</div>
-          <div class="leg-item"><div class="leg-dot" style="background:var(--gray-100)"></div>No disponible</div>
+          <div class="leg-item"><div class="leg-dot leg-dot-teaching"></div>No disponible</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--gray-100)"></div>Periodo pasado</div>
         </div>
-        <p class="admin-hint hidden" id="admin-hint">Admin: clic en libre para reservar · clic derecho en libre para bloquear · clic en reservado para cancelar · clic en bloqueado para desbloquear</p>
+        <p class="admin-hint hidden" id="admin-hint">Clic en slot libre para reservar · Coordinación y Admin: clic en reservado para cancelar · Admin: clic derecho en libre para bloquear</p>
       </div>
     </div>
     <div id="view-list" class="hidden">
