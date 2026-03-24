@@ -32,6 +32,11 @@ let authToken=sessionStorage.getItem('vr-booking-token')||null;
 
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 
+function sanitizeField(str){
+  if(typeof str!=='string')return'';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#x27;').trim().slice(0,500);
+}
 const getMonday=off=>{const n=new Date(),dy=n.getDay(),m=new Date(n);m.setDate(n.getDate()-dy+(dy===0?-6:1)+off*7);m.setHours(0,0,0,0);return m;};
 const getCellDate=(w,d)=>{const m=getMonday(w),dt=new Date(m);dt.setDate(dt.getDate()+d);return dt;};
 const dStr=d=>d.toISOString().slice(0,10);
@@ -477,14 +482,14 @@ async function confirmBooking(){
   }
 
   const vals={
-    profesor:document.getElementById('f-profesor').value.trim(),
-    grupo,
-    materia:subject,
-    actividad:actividadOverride||document.getElementById('f-actividad').value.trim(),
-    aprendizaje:document.getElementById('f-aprendizaje').value.trim(),
-    observaciones:document.getElementById('f-observaciones').value.trim(),
-    tipoSesion,
-  };
+  profesor:sanitizeField(document.getElementById('f-profesor').value),
+  grupo:sanitizeField(grupo),
+  materia:sanitizeField(subject),
+  actividad:sanitizeField(actividadOverride||document.getElementById('f-actividad').value),
+  aprendizaje:sanitizeField(document.getElementById('f-aprendizaje').value),
+  observaciones:sanitizeField(document.getElementById('f-observaciones').value),
+  tipoSesion,
+};
 
   const required=['profesor','materia','aprendizaje'];
   if(subject!=='Admin') required.push('grupo');
@@ -802,7 +807,11 @@ function exportCSV(){
     return ROWS.findIndex(r=>r.label===p1)-ROWS.findIndex(r=>r.label===p2);
   });
   if(!entries.length){showToast('No hay reservas para exportar','err');return;}
-  const headers=['GRUPO','MATERIA','FECHA','HORA','Actividad','PROFESOR','Aprendizaje esperado/producto','Observaciones'];
+  .map(v=>{
+  const s=String(v??'');
+  const safe=(['+','-','=','@','\t','\r'].includes(s[0]))?`'${s}`:s;
+  return'"'+safe.replace(/"/g,'""')+'"';
+}).join(',');
   const rows=entries.map(([key,b])=>{
     const cd=getCellDate(b.wOff,b.dIdx);
     const fecha=cd.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'});
