@@ -3,10 +3,12 @@
 <head>
 <meta charset="UTF-8"/>
   <script>
-      if (window.location.hostname === 'immrhh.github.io') {
-        window.location.replace('https://portalvr.tech' + window.location.pathname.replace('/vr-lab', ''));
-      }
-    </script>
+  if (window.location.hostname === 'immrhh.github.io') {
+    // Quitamos '/vr-lab' y nos aseguramos de que no queden dobles barras '//'
+    let newPath = window.location.pathname.replace('/vr-lab', '');
+    window.location.replace('https://portalvr.tech' + (newPath === '/' ? '' : newPath));
+  }
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>R. Virtual · CUAM</title>
 <link rel="manifest" href="manifest.json"/>
