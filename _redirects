@@ -1,2 +1,5 @@
+# Redirigir WWW
 https://www.portalvr.tech/* https://portalvr.tech/:splat 301
-https://immrhh.github.io/vr-lab/* https://portalvr.tech/:splat 301
+
+# Redirigir la URL de Pages de Cloudflare
+https://vr-lab.pages.dev/* https://portalvr.tech/:splat 301
