@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
- <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>R. Virtual · CUAM</title>
 <link rel="manifest" href="manifest.json"/>
 <meta name="theme-color" content="#1D9E75"/>
@@ -22,10 +22,10 @@
     </div>
   </div>
   <div class="topbar-right">
-    <button class="btn-theme" id="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
+    <button class="btn-theme" id="theme-toggle" title="Cambiar tema">🌙</button>
     <span class="badge-admin hidden" id="admin-badge">Admin</span>
-    <button class="btn btn-sm hidden" id="exit-admin-btn" onclick="exitRole()">Salir</button>
-    <button class="btn btn-sm hidden" id="admin-btn" onclick="showPin()">Admin</button>
+    <button class="btn btn-sm hidden" id="exit-admin-btn">Salir</button>
+    <button class="btn btn-sm hidden" id="admin-btn">Admin</button>
   </div>
 </div>
 
@@ -34,7 +34,7 @@
     <div class="auth-icon">⬡</div>
     <h2>Laboratorio de R. Virtual</h2>
     <p>Consulta la disponibilidad del laboratorio y reserva tu sesión con el coordinador.</p>
-    <button class="btn btn-primary" style="width:100%;padding:12px;font-size:14px" onclick="enterApp()">
+    <button class="btn btn-primary" id="btn-enter-app" style="width:100%;padding:12px;font-size:14px">
       Ver disponibilidad
     </button>
     <p class="auth-note">Las reservas son registradas por el coordinador de R. Virtual.</p>
@@ -50,21 +50,21 @@
       <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
     </div>
     <div class="pin-keypad">
-      <button class="pin-key" onclick="pinPress('1')">1</button>
-      <button class="pin-key" onclick="pinPress('2')">2</button>
-      <button class="pin-key" onclick="pinPress('3')">3</button>
-      <button class="pin-key" onclick="pinPress('4')">4</button>
-      <button class="pin-key" onclick="pinPress('5')">5</button>
-      <button class="pin-key" onclick="pinPress('6')">6</button>
-      <button class="pin-key" onclick="pinPress('7')">7</button>
-      <button class="pin-key" onclick="pinPress('8')">8</button>
-      <button class="pin-key" onclick="pinPress('9')">9</button>
+      <button class="pin-key" data-pin="1">1</button>
+      <button class="pin-key" data-pin="2">2</button>
+      <button class="pin-key" data-pin="3">3</button>
+      <button class="pin-key" data-pin="4">4</button>
+      <button class="pin-key" data-pin="5">5</button>
+      <button class="pin-key" data-pin="6">6</button>
+      <button class="pin-key" data-pin="7">7</button>
+      <button class="pin-key" data-pin="8">8</button>
+      <button class="pin-key" data-pin="9">9</button>
       <button class="pin-key empty"></button>
-      <button class="pin-key" onclick="pinPress('0')">0</button>
-      <button class="pin-key del" onclick="pinPress('del')">⌫</button>
+      <button class="pin-key" data-pin="0">0</button>
+      <button class="pin-key del" data-pin="del">⌫</button>
     </div>
     <div class="pin-error" id="pin-error"></div>
-    <button onclick="hidePinScreen()" style="margin-top:16px;font-size:12px;color:var(--gray-400);background:none;border:none;cursor:pointer;text-decoration:underline;font-family:'DM Sans',sans-serif">Cancelar</button>
+    <button id="btn-cancel-pin" style="margin-top:16px;font-size:12px;color:var(--gray-400);background:none;border:none;cursor:pointer;text-decoration:underline;font-family:'DM Sans',sans-serif">Cancelar</button>
   </div>
 </div>
 
@@ -72,18 +72,18 @@
   <div class="container">
     <div id="status-bar" class="hidden"></div>
     <div class="view-tabs hidden" id="view-tabs">
-      <button class="tab active" id="tab-grid" onclick="setView('grid')">Vista semanal</button>
-      <button class="tab" id="tab-list" onclick="setView('list')">Todas las reservas</button>
-      <button class="tab" id="tab-stats" onclick="setView('stats')">📊 Estadísticas</button>
-      <button class="tab" id="tab-export" onclick="exportCSV()" style="margin-left:auto;background:var(--green);color:white;border-color:var(--green)">⬇ Exportar Excel</button>
+      <button class="tab active" id="tab-grid">Vista semanal</button>
+      <button class="tab" id="tab-list">Todas las reservas</button>
+      <button class="tab" id="tab-stats">📊 Estadísticas</button>
+      <button class="tab" id="tab-export" style="margin-left:auto;background:var(--green);color:white;border-color:var(--green)">⬇ Exportar Excel</button>
     </div>
     <div id="view-grid">
       <div class="card" style="padding:16px 20px">
         <div class="week-nav">
-          <button class="btn btn-sm" onclick="changeWeek(-1)">← Anterior</button>
-          <button id="btn-today" class="btn-today" onclick="goToday()">Hoy</button>
+          <button class="btn btn-sm" id="btn-prev-week">← Anterior</button>
+          <button id="btn-today" class="btn-today">Hoy</button>
           <span class="week-label" id="week-label"></span>
-          <button class="btn btn-sm" onclick="changeWeek(1)">Siguiente →</button>
+          <button class="btn btn-sm" id="btn-next-week">Siguiente →</button>
         </div>
         <div class="grid-wrap"><div class="grid" id="grid"></div></div>
         <div class="legend">
@@ -104,7 +104,7 @@
   </div>
 </div>
 
-<div class="modal-bg hidden" id="modal" onclick="if(event.target===this)closeModal()">
+<div class="modal-bg hidden" id="modal">
   <div class="modal">
     <h2 id="modal-title">Reservar slot</h2>
     <div class="modal-sub" id="modal-sub"></div>
@@ -128,11 +128,10 @@
         <option value="">Seleccionar materia…</option>
       </select>
     </div>
-    <!-- Admin session type (visible only when Materia = Admin) -->
     <div class="form-row hidden" id="admin-session-row">
       <div class="form-group">
         <label>Tipo de sesión Admin <span class="req">*</span></label>
-        <select id="f-admin-type" onchange="onAdminTypeChange()">
+        <select id="f-admin-type">
           <option value="Mantenimiento">Mantenimiento</option>
           <option value="Planeación">Planeación</option>
           <option value="Otro">Otro</option>
@@ -158,24 +157,24 @@
       <textarea id="f-observaciones" placeholder="Notas adicionales (opcional)..." style="min-height:48px"></textarea>
     </div>
     <div class="modal-actions">
-      <button class="btn" style="flex:1" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" style="flex:1" onclick="confirmBooking()" id="confirm-btn">Confirmar reserva</button>
+      <button class="btn" id="btn-close-modal" style="flex:1">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" id="confirm-btn">Confirmar reserva</button>
     </div>
   </div>
 </div>
 
-<div class="modal-bg hidden" id="confirm-modal" onclick="if(event.target===this)closeConfirmDialog()">
+<div class="modal-bg hidden" id="confirm-modal">
   <div class="confirm-modal">
     <h2 id="confirm-title"></h2>
     <div class="modal-sub" id="confirm-message"></div>
     <div class="modal-actions">
-      <button class="btn" style="flex:1" id="confirm-cancel-btn" onclick="closeConfirmDialog()">Cancelar</button>
+      <button class="btn" style="flex:1" id="confirm-cancel-btn">Cancelar</button>
       <button class="btn" style="flex:1" id="confirm-action-btn"></button>
     </div>
   </div>
 </div>
 
-<div id="cancel-modal" class="modal-bg hidden" onclick="if(event.target===this)closeCancelModal()">
+<div id="cancel-modal" class="modal-bg hidden">
   <div class="modal" style="width:380px">
     <h2 id="cancel-modal-title">¿Cancelar reserva?</h2>
     <p class="modal-sub" id="cancel-modal-info"></p>
@@ -184,7 +183,7 @@
       <textarea id="cancel-reason" placeholder="Escribe el motivo de la cancelación…" rows="3"></textarea>
     </div>
     <div class="modal-actions">
-      <button class="btn" style="flex:1" onclick="closeCancelModal()">Volver</button>
+      <button class="btn" style="flex:1" id="btn-close-cancel-modal">Volver</button>
       <button class="btn btn-danger" style="flex:1" id="cancel-confirm-btn">Cancelar reserva</button>
     </div>
   </div>
@@ -192,7 +191,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}</script>
 </body>
 </html>
