@@ -1,10 +1,13 @@
 import { PROXY, FDAYS } from './config.js';
 
 /**
- * GET genérico vía proxy.
+ * GET genérico vía proxy con autenticación.
  */
-export async function proxyGetUrl(url) {
-  const r = await fetch(url, { method: 'GET' });
+export async function proxyGetUrl(url, authToken) {
+  const headers = authToken
+    ? { 'Authorization': `Bearer ${authToken}` }
+    : {};
+  const r = await fetch(url, { method: 'GET', headers });
   const text = await r.text();
   try {
     const data = JSON.parse(text);
@@ -70,7 +73,7 @@ export async function loadBookings(authToken) {
   do {
     const formula = encodeURIComponent("NOT({Status}='Cancelled')");
     const url = `${PROXY}?filterByFormula=${formula}&pageSize=100${offset ? '&offset=' + offset : ''}`;
-    const raw = await proxyGetUrl(url);
+    const raw = await proxyGetUrl(url, authToken);
     const data = raw.records ? raw : (raw.$return_value || raw);
     all = [...all, ...(data.records || [])];
     offset = data.offset || '';
@@ -103,8 +106,6 @@ export async function loadBookings(authToken) {
 
 /**
  * Guarda una nueva reserva confirmada.
- * (cd = cell date, key = slotKey, data incluyen todos los campos)
- * Devuelve el id creado.
  */
 export async function saveBooking(key, data, authToken, getCellDate, dStr, FDAYS) {
   const cd = getCellDate(data.wOff, data.dIdx);
@@ -130,7 +131,7 @@ export async function saveBooking(key, data, authToken, getCellDate, dStr, FDAYS
 }
 
 /**
- * Cancela una reserva (Status = 'Cancelled', modifica Observaciones/motivo).
+ * Cancela una reserva.
  */
 export async function cancelOnServer(id, reason, authToken) {
   const fields = { Status: 'Cancelled' };
@@ -145,7 +146,7 @@ export async function checkConflict(key, authToken) {
   const safeKey = String(key).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const formula = encodeURIComponent(`AND({SlotKey}='${safeKey}', {Status}='Confirmed')`);
   const url = `${PROXY}?filterByFormula=${formula}&pageSize=1`;
-  const raw = await proxyGetUrl(url);
+  const raw = await proxyGetUrl(url, authToken);
   const data = raw.records ? raw : (raw.$return_value || raw);
   return (data.records || []).length > 0;
 }
