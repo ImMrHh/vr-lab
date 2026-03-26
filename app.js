@@ -1,32 +1,32 @@
 import * as api from './api.js';
 import * as ui from './ui.js';
 import * as modal from './modal.js';
+import * as auth from './auth.js';
 import {
   DAYS, FDAYS, ROWS, HOLIDAYS, TEACHING, SCHOOL_END
 } from './config.js';
-
 import {
   getMonday, getCellDate, dStr, fmtDate, slotKey,
   isToday, isPast, isPastSchoolEnd,
   getWeekBookings, getMonthBookings, getUsageRate, getTopTeachers, getBusiestDay
-} from './calendar.js'; // Cambia esto si tus helpers están en config.js
+} from './calendar.js';
 
-// Estado global
 let isAdmin    = false;
 let weekOff    = 0;
 let currentView = 'grid';
-let role       = null;
-let authToken  = null; // Integra después desde SSO o tu nuevo auth
 let bookings   = {};
 let mBlocked   = {};
 
-// ─── Render helpers binding ──────────────────────────────────────────────
+// Utilities
+function getToken() { return auth.getAuthToken(); }
+function getRole()  { return auth.getRole(); }
 
-// Wrapper directo para montar la cuadrícula
+// Actualiza según estado/rol
 function renderGrid() {
+  isAdmin = getRole() === 'admin';
   ui.renderGrid({
     DAYS, ROWS, HOLIDAYS, TEACHING, SCHOOL_END, FDAYS,
-    weekOff, isAdmin, currentView, role, bookings, mBlocked,
+    weekOff, isAdmin, currentView, role: getRole(), bookings, mBlocked,
     getCellDate, fmtDate, slotKey, isToday, isPast, isPastSchoolEnd,
     openModal, doUnblock, doCancel, doBlock,
   });
@@ -34,10 +34,9 @@ function renderGrid() {
 
 function renderList() {
   ui.renderList({
-    bookings, ROWS, FDAYS, currentView, role, doCancel
+    bookings, ROWS, FDAYS, currentView, role: getRole(), doCancel
   });
 }
-
 function renderStats() {
   ui.renderStats({
     getWeekBookings, getMonthBookings, getUsageRate, getTopTeachers, getBusiestDay,
@@ -45,70 +44,58 @@ function renderStats() {
   });
 }
 
-// ─── Modal (alta, cancelar, bloquear…) ──────────────────────────────
-
+// Modals
 function openModal(wOff, dIdx, pLabel, pTime, key) {
   modal.openModal({
     wOff, dIdx, pLabel, pTime, key,
     FDAYS, fmtDate,
-    hideAdminExtras: () => {}, // Completa según UI
-    populateTeachers: () => {}, // Completa según UI
+    hideAdminExtras: () => {},
+    populateTeachers: () => {},
   });
 }
-
 function doCancel(key, booking) {
   modal.doCancel(
     key, booking, FDAYS, fmtDate, ui.showToast,
     renderGrid, currentView, renderList,
-    (id, reason) => api.cancelOnServer(id, reason, authToken)
+    (id, reason) => api.cancelOnServer(id, reason, getToken())
   );
 }
-
 function doUnblock(key) {
   modal.doUnblock(
     key,
     modal.showConfirmDialog,
-    (id) => api.cancelOnServer(id, null, authToken),
+    (id) => api.cancelOnServer(id, null, getToken()),
     mBlocked,
     renderGrid,
     ui.showToast
   );
 }
-
 function doBlock(key, wOff, dIdx, pLabel, pTime) {
   modal.doBlock(
     key, wOff, dIdx, pLabel, pTime,
     FDAYS, fmtDate, modal.showConfirmDialog,
-    (key) => api.checkConflict(key, authToken),
+    (key) => api.checkConflict(key, getToken()),
     ui.showToast,
     async () => {
-      ({ bookings, mBlocked } = await api.loadBookings(authToken));
+      const loaded = await api.loadBookings(getToken());
+      bookings = loaded.bookings || {};
+      mBlocked = loaded.mBlocked || {};
     },
     renderGrid
   );
 }
 
-// ─── Navegación de semana y vistas ────────────────────────────────────
-
+// Semana y navigation
 function renderWeekLabel() {
   ui.renderWeekLabel({ getMonday, weekOff });
 }
-
 function changeWeek(dir) {
-  weekOff += dir;
-  renderWeekLabel();
-  renderGrid();
-  updateTodayBtn();
+  weekOff += dir; renderWeekLabel(); renderGrid(); updateTodayBtn();
 }
-
 function goToday() {
   if (weekOff === 0) return;
-  weekOff = 0;
-  renderWeekLabel();
-  renderGrid();
-  updateTodayBtn();
+  weekOff = 0; renderWeekLabel(); renderGrid(); updateTodayBtn();
 }
-
 function updateTodayBtn() {
   const btn = document.getElementById('btn-today');
   if (!btn) return;
@@ -120,8 +107,6 @@ function updateTodayBtn() {
     btn.title = 'Ir a la semana actual';
   }
 }
-
-// Tabs
 function setView(v) {
   currentView = v;
   ['grid', 'list', 'stats'].forEach(n => {
@@ -132,35 +117,44 @@ function setView(v) {
   if (v === 'stats') renderStats();
 }
 
-// ─── App entry/init ──────────────────────────────────────────────
-
+// App entry/init
 async function enterApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('main-app').classList.remove('hidden');
   document.getElementById('admin-btn').classList.remove('hidden');
-  renderWeekLabel();
-  renderGrid(true);
-  updateTodayBtn();
+  renderWeekLabel(); renderGrid(true); updateTodayBtn();
   ui.showStatus('Cargando disponibilidad…', 'ok');
   try {
-    const loaded = await api.loadBookings(authToken);
+    const loaded = await api.loadBookings(getToken());
     bookings = loaded.bookings || {};
     mBlocked = loaded.mBlocked || {};
-    ui.hideStatus();
-    renderGrid();
+    ui.hideStatus(); renderGrid();
   } catch (e) {
     ui.showStatus('Error al conectar: ' + e.message, 'err');
     renderGrid();
   }
 }
 
-// ─── Event listeners (DOMContentLoaded) ──────────────────────────────
+// ADMIN actions
+function enterAdmin() {
+  auth.showPin(() => {
+    renderGrid();
+  });
+}
+function salirAdmin() {
+  auth.exitRole();
+  renderGrid();
+}
 
+// Restore session al cargar
+auth.restoreSession(() => {
+  renderGrid();
+});
+
+// DOMContentLoaded (bindings)
 document.addEventListener('DOMContentLoaded', () => {
-  // Entrar app
   document.getElementById('btn-enter-app')?.addEventListener('click', enterApp);
 
-  // Navegación de semana y tabs
   document.getElementById('btn-prev-week')?.addEventListener('click', () => changeWeek(-1));
   document.getElementById('btn-next-week')?.addEventListener('click', () => changeWeek(1));
   document.getElementById('btn-today')?.addEventListener('click', goToday);
@@ -169,28 +163,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-list')?.addEventListener('click', () => setView('list'));
   document.getElementById('tab-stats')?.addEventListener('click', () => setView('stats'));
 
-  // Exportar Excel: TODO, conecta cuando muevas función de export a un módulo
-  
-  // Modal cancel/reset
+  document.getElementById('admin-btn')?.addEventListener('click', enterAdmin);
+  document.getElementById('exit-admin-btn')?.addEventListener('click', salirAdmin);
+
   document.getElementById('btn-close-modal')?.addEventListener('click', modal.closeModal);
   document.getElementById('modal')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal')) modal.closeModal();
   });
-
-  // Confirm dialogs
   document.getElementById('confirm-cancel-btn')?.addEventListener('click', modal.closeConfirmDialog);
   document.getElementById('confirm-modal')?.addEventListener('click', e => {
     if (e.target === document.getElementById('confirm-modal')) modal.closeConfirmDialog();
   });
-
-  // Cancelar modal
   document.getElementById('btn-close-cancel-modal')?.addEventListener('click', modal.closeCancelModal);
   document.getElementById('cancel-modal')?.addEventListener('click', e => {
     if (e.target === document.getElementById('cancel-modal')) modal.closeCancelModal();
   });
-  
-  // Init default view
-  renderWeekLabel();
-  renderGrid();
-  updateTodayBtn();
+
+  renderWeekLabel(); renderGrid(); updateTodayBtn();
 });
