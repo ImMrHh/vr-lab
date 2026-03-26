@@ -2,6 +2,7 @@ import * as api from './api.js';
 import * as ui from './ui.js';
 import * as modal from './modal.js';
 import * as auth from './auth.js';
+import * as form from './form.js';
 import {
   DAYS, FDAYS, ROWS, HOLIDAYS, TEACHING, SCHOOL_END
 } from './config.js';
@@ -25,7 +26,8 @@ function exposeGlobals() {
 function getToken() { return auth.getAuthToken(); }
 function getRole()  { return auth.getRole(); }
 
-// ─── Fix 1: refreshBookings centraliza la carga de datos ─────────────────────
+// ─── Carga centralizada de bookings ──────────────────────────────────────────
+
 async function refreshBookings() {
   try {
     const loaded = await api.loadBookings(getToken());
@@ -38,11 +40,12 @@ async function refreshBookings() {
 }
 
 // ─── Render helpers ───────────────────────────────────────────────────────────
-function renderGrid() {
+
+function renderGrid(loading = false) {
   isAdmin = getRole() === 'admin';
   ui.renderGrid({
     DAYS, ROWS, HOLIDAYS, TEACHING, SCHOOL_END, FDAYS,
-    weekOff, isAdmin, currentView, role: getRole(), bookings, mBlocked,
+    weekOff, isAdmin, loading, role: getRole(), bookings, mBlocked,
     getCellDate, fmtDate, slotKey, isToday, isPast, isPastSchoolEnd,
     openModal, doUnblock, doCancel, doBlock,
   });
@@ -50,9 +53,10 @@ function renderGrid() {
 
 function renderList() {
   ui.renderList({
-    bookings, ROWS, FDAYS, currentView, role: getRole(), doCancel
+    bookings, ROWS, FDAYS, role: getRole(), doCancel
   });
 }
+
 function renderStats() {
   ui.renderStats({
     getWeekBookings, getMonthBookings, getUsageRate, getTopTeachers, getBusiestDay,
@@ -60,15 +64,17 @@ function renderStats() {
   });
 }
 
-// ─── Modal delegates ──────────────────────────────────────────────────────────
+// ─── Modal ────────────────────────────────────────────────────────────────────
+
 function openModal(wOff, dIdx, pLabel, pTime, key) {
   modal.openModal({
     wOff, dIdx, pLabel, pTime, key,
     FDAYS, fmtDate,
-    hideAdminExtras: () => {},
-    populateTeachers: () => {},
+    hideAdminExtras: form.hideAdminExtras,
+    populateTeachers: form.populateTeachers,
   });
 }
+
 function doCancel(key, booking) {
   modal.doCancel(
     key, booking, FDAYS, fmtDate, ui.showToast,
@@ -76,6 +82,7 @@ function doCancel(key, booking) {
     (id, reason) => api.cancelOnServer(id, reason, getToken())
   );
 }
+
 function doUnblock(key) {
   modal.doUnblock(
     key,
@@ -86,6 +93,7 @@ function doUnblock(key) {
     ui.showToast
   );
 }
+
 function doBlock(key, wOff, dIdx, pLabel, pTime) {
   modal.doBlock(
     key, wOff, dIdx, pLabel, pTime,
@@ -98,6 +106,7 @@ function doBlock(key, wOff, dIdx, pLabel, pTime) {
 }
 
 // ─── Navegación semanal ───────────────────────────────────────────────────────
+
 function renderWeekLabel() {
   ui.renderWeekLabel({ getMonday, weekOff });
 }
@@ -122,14 +131,15 @@ function updateTodayBtn() {
 function setView(v) {
   currentView = v;
   ['grid', 'list', 'stats'].forEach(n => {
-    document.getElementById(`view-${n}`).classList.toggle('hidden', v !== n);
-    document.getElementById(`tab-${n}`).classList.toggle('active', v === n);
+    document.getElementById(`view-${n}`)?.classList.toggle('hidden', v !== n);
+    document.getElementById(`tab-${n}`)?.classList.toggle('active', v === n);
   });
   if (v === 'list')  renderList();
   if (v === 'stats') renderStats();
 }
 
-// ─── Fix 2: enterApp usa refreshBookings ──────────────────────────────────────
+// ─── Enter app ────────────────────────────────────────────────────────────────
+
 async function enterApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('main-app').classList.remove('hidden');
@@ -143,7 +153,8 @@ async function enterApp() {
   renderGrid();
 }
 
-// ─── Admin PIN/rol ────────────────────────────────────────────────────────────
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
 function enterAdmin() {
   auth.showPin(async () => {
     await refreshBookings();
@@ -157,7 +168,9 @@ function salirAdmin() {
 }
 
 // ─── DOMContentLoaded ─────────────────────────────────────────────────────────
+
 document.addEventListener('DOMContentLoaded', async () => {
+  // Navegación y vistas
   document.getElementById('btn-enter-app')?.addEventListener('click', enterApp);
   document.getElementById('btn-prev-week')?.addEventListener('click', () => changeWeek(-1));
   document.getElementById('btn-next-week')?.addEventListener('click', () => changeWeek(1));
@@ -165,10 +178,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('tab-grid')?.addEventListener('click', () => setView('grid'));
   document.getElementById('tab-list')?.addEventListener('click', () => setView('list'));
   document.getElementById('tab-stats')?.addEventListener('click', () => setView('stats'));
+
+  // Admin
   document.getElementById('admin-btn')?.addEventListener('click', enterAdmin);
   document.getElementById('exit-admin-btn')?.addEventListener('click', salirAdmin);
+
+  // Tema
   document.getElementById('theme-toggle')?.addEventListener('click', ui.toggleTheme);
   ui.setInitialThemeIcon();
+
+  // Modales — cierre
   document.getElementById('btn-close-modal')?.addEventListener('click', modal.closeModal);
   document.getElementById('modal')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal')) modal.closeModal();
@@ -182,12 +201,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.target === document.getElementById('cancel-modal')) modal.closeCancelModal();
   });
 
+  // ESC global
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!document.getElementById('confirm-modal').classList.contains('hidden')) { modal.closeConfirmDialog(); return; }
+    if (!document.getElementById('modal').classList.contains('hidden')) { modal.closeModal(); return; }
+    if (!document.getElementById('cancel-modal').classList.contains('hidden')) { modal.closeCancelModal(); return; }
+  });
+
+  // Conectar form.js con api.js
+  form.initConfirmBooking({
+    checkConflict:  (key) => api.checkConflict(key, getToken()),
+    saveBooking:    (key, data) => api.saveBooking(key, data, getToken(), getCellDate, dStr, FDAYS),
+    loadBookings:   refreshBookings,
+    renderGrid,
+    renderList,
+    getCurrentView: () => currentView,
+    closeModal:     modal.closeModal,
+  });
+
+  // Render inicial
   renderWeekLabel();
   renderGrid();
   updateTodayBtn();
   exposeGlobals();
 
-  // Fix 3: restoreSession dentro del DOM, carga bookings si hay sesión guardada
+  // Restore session
   await auth.restoreSession(async () => {
     await refreshBookings();
     renderGrid();
