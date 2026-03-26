@@ -2,21 +2,17 @@ import { AUTH_URL, ROLE_LABELS, ROLE_COLORS } from './config.js';
 
 let authToken = null;
 let role = null;
+let _pinHandler = null;
 
-export function getAuthToken() {
-  return authToken;
-}
-export function getRole() {
-  return role;
-}
+export function getAuthToken() { return authToken; }
+export function getRole() { return role; }
 
-// UI helpers internos
 function updateDots(pinVal) {
-  for (let i = 0; i < 4; i++)
+  for (let i = 0; i < 4; i++) {
     document.getElementById('d' + i).className = 'pin-dot' + (i < pinVal.length ? ' filled' : '');
+  }
 }
 
-// Muestra pantalla de PIN y borra campos
 export function showPin(onSuccess) {
   let pinVal = '';
   document.getElementById('pin-error').textContent = '';
@@ -24,10 +20,22 @@ export function showPin(onSuccess) {
   document.getElementById('pin-screen').classList.remove('hidden');
   document.getElementById('main-app').classList.add('hidden');
 
-  // PIN teclado
+  // limpiar handler anterior, si lo había
+  if (_pinHandler) document.removeEventListener('keydown', _pinHandler);
+
+  // handler local con acceso a pinVal
+  _pinHandler = function(e) {
+    if (document.getElementById('pin-screen').classList.contains('hidden')) return;
+    if (e.key >= '0' && e.key <= '9') pinPress(e.key);
+    else if (e.key === 'Backspace') pinPress('del');
+    else if (e.key === 'Escape') hidePinScreen();
+  };
+  document.addEventListener('keydown', _pinHandler);
+
   document.querySelectorAll('.pin-key[data-pin]').forEach(btn => {
     btn.onclick = () => pinPress(btn.dataset.pin);
   });
+
   document.getElementById('btn-cancel-pin')?.addEventListener('click', hidePinScreen);
 
   function pinPress(v) {
@@ -77,9 +85,13 @@ export function showPin(onSuccess) {
 export function hidePinScreen() {
   document.getElementById('pin-screen').classList.add('hidden');
   document.getElementById('main-app').classList.remove('hidden');
+  // remover listener
+  if (_pinHandler) {
+    document.removeEventListener('keydown', _pinHandler);
+    _pinHandler = null;
+  }
 }
 
-// Aplica privilegios y muestra badge acorde a rol
 export function enterRole(r, onSuccess) {
   role = r;
   authToken = sessionStorage.getItem('vr-booking-token');
@@ -93,6 +105,7 @@ export function enterRole(r, onSuccess) {
   document.getElementById('view-tabs').classList.remove('hidden');
   onSuccess && onSuccess();
 }
+
 export function exitRole() {
   fetch(`${AUTH_URL}/logout`, {
     method: 'POST',
@@ -107,7 +120,6 @@ export function exitRole() {
   document.getElementById('view-tabs').classList.add('hidden');
 }
 
-// Restaura sesión existente (en background)
 export async function restoreSession(onSuccess) {
   authToken = sessionStorage.getItem('vr-booking-token');
   if (authToken) {

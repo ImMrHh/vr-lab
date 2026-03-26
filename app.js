@@ -5,25 +5,23 @@ import * as auth from './auth.js';
 import {
   DAYS, FDAYS, ROWS, HOLIDAYS, TEACHING, SCHOOL_END
 } from './config.js';
-// Si tus helpers de fechas están en config.js, reemplaza la siguiente línea:
 import {
   getMonday, getCellDate, dStr, fmtDate, slotKey,
   isToday, isPast, isPastSchoolEnd,
   getWeekBookings, getMonthBookings, getUsageRate, getTopTeachers, getBusiestDay
 } from './calendar.js';
 
-// Estado global local
-let isAdmin    = false;
-let weekOff    = 0;
+let isAdmin = false;
+let weekOff = 0;
 let currentView = 'grid';
-let bookings   = {};
-let mBlocked   = {};
+let bookings = {};
+let mBlocked = {};
 
-// ----- Helpers para acceder a sesión actual -----
+// Helpers para sesión
 function getToken() { return auth.getAuthToken(); }
-function getRole()  { return auth.getRole(); }
+function getRole() { return auth.getRole(); }
 
-// ------ Render / Delegates ------
+// Render helpers
 function renderGrid() {
   isAdmin = getRole() === 'admin';
   ui.renderGrid({
@@ -45,7 +43,7 @@ function renderStats() {
   });
 }
 
-// ------ Modals ------
+// Modals delegates
 function openModal(wOff, dIdx, pLabel, pTime, key) {
   modal.openModal({
     wOff, dIdx, pLabel, pTime, key,
@@ -86,7 +84,7 @@ function doBlock(key, wOff, dIdx, pLabel, pTime) {
   );
 }
 
-// ------ Semana, navegación y vistas ------
+// Semana, navegación y vistas
 function renderWeekLabel() {
   ui.renderWeekLabel({ getMonday, weekOff });
 }
@@ -108,7 +106,6 @@ function updateTodayBtn() {
     btn.title = 'Ir a la semana actual';
   }
 }
-
 function setView(v) {
   currentView = v;
   ['grid', 'list', 'stats'].forEach(n => {
@@ -119,7 +116,6 @@ function setView(v) {
   if (v === 'stats') renderStats();
 }
 
-// ------ Cargar/cambiar datos ------
 async function enterApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('main-app').classList.remove('hidden');
@@ -137,7 +133,7 @@ async function enterApp() {
   }
 }
 
-// ADMIN (PIN auth)
+// Admin PIN/rol
 function enterAdmin() {
   auth.showPin(() => {
     renderGrid();
@@ -148,14 +144,13 @@ function salirAdmin() {
   renderGrid();
 }
 
-// ------ Restaurar sesión si hay ------
+// Restore session
 auth.restoreSession(() => {
   renderGrid();
 });
 
-// ------ DOMContentLoaded (bindings) ------
+// DOMContentLoaded: listeners
 document.addEventListener('DOMContentLoaded', () => {
-  // Navegación principal
   document.getElementById('btn-enter-app')?.addEventListener('click', enterApp);
   document.getElementById('btn-prev-week')?.addEventListener('click', () => changeWeek(-1));
   document.getElementById('btn-next-week')?.addEventListener('click', () => changeWeek(1));
@@ -163,8 +158,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-grid')?.addEventListener('click', () => setView('grid'));
   document.getElementById('tab-list')?.addEventListener('click', () => setView('list'));
   document.getElementById('tab-stats')?.addEventListener('click', () => setView('stats'));
-
-  // Auth: inline PIN + salida
   document.getElementById('admin-btn')?.addEventListener('click', enterAdmin);
   document.getElementById('exit-admin-btn')?.addEventListener('click', salirAdmin);
 
@@ -172,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('theme-toggle')?.addEventListener('click', ui.toggleTheme);
   ui.setInitialThemeIcon();
 
-  // Modals generales y cierre (cierren modales, cancelaciones, etc)
+  // Modals generales y cierre
   document.getElementById('btn-close-modal')?.addEventListener('click', modal.closeModal);
   document.getElementById('modal')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal')) modal.closeModal();

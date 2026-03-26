@@ -1,12 +1,6 @@
-// =============================================================================
-// ui.js — Renderizado, toasts, modo oscuro, helpers esc...
-// =============================================================================
-
-// Escape for XSS-safe innerHTML
 export const esc = s => String(s).replace(/[&<>"']/g, c =>
   ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":"&#39;" })[c]);
 
-// Modo oscuro y sincronización inicial de icono
 export function toggleTheme() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   if (isDark) {
@@ -19,7 +13,6 @@ export function toggleTheme() {
     localStorage.setItem('vr-dark-mode', 'true');
   }
 }
-
 export function setInitialThemeIcon() {
   const el = document.getElementById('theme-toggle');
   if (!el) return;
@@ -28,8 +21,6 @@ export function setInitialThemeIcon() {
   else
     el.textContent = '🌙';
 }
-
-// ------------- OTRAS FUNCIONES DE RENDER (resumen; pon aquí tus versiones completas) ------------
 
 export function showToast(msg, type = 'ok') {
   const t = document.getElementById('toast');
@@ -47,10 +38,10 @@ export function hideStatus() {
   document.getElementById('status-bar').classList.add('hidden');
 }
 
-// ... Pon aquí tu renderGrid, renderList, etc según modularización:
-export function renderGrid(args) {/* ... */}
-export function renderList(args) {/* ... */}
-export function renderStats(args) {/* ... */}
+// Las siguientes funciones DEBEN existir en tu archivo, copia tu renderGrid/modularización:
+export function renderGrid(args) { /* ...tu lógica de render... */ }
+export function renderList(args) { /* ... */ }
+export function renderStats(args) { /* ... */ }
 export function renderWeekLabel({ getMonday, weekOff }) {
   const m = getMonday(weekOff), f = new Date(m);
   f.setDate(m.getDate() + 4);
