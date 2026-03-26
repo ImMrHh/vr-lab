@@ -3,6 +3,7 @@ https://portalvr.tech/*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://alcdn.msauth.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://login.microsoftonline.com https://graph.microsoft.com https://vr-lab-proxy.6z5fznmp4m.workers.dev https://vr-lab-auth.6z5fznmp4m.workers.dev; frame-src https://login.microsoftonline.com;
 
 /sw.js
   Cache-Control: no-store, no-cache, must-revalidate
