@@ -171,13 +171,28 @@ function salirAdmin() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Navegación y vistas
-  document.getElementById('btn-enter-app')?.addEventListener('click', enterApp);
-  document.getElementById('btn-prev-week')?.addEventListener('click', () => changeWeek(-1));
+   document.getElementById('btn-prev-week')?.addEventListener('click', () => changeWeek(-1));
   document.getElementById('btn-next-week')?.addEventListener('click', () => changeWeek(1));
   document.getElementById('btn-today')?.addEventListener('click', goToday);
   document.getElementById('tab-grid')?.addEventListener('click', () => setView('grid'));
   document.getElementById('tab-list')?.addEventListener('click', () => setView('list'));
   document.getElementById('tab-stats')?.addEventListener('click', () => setView('stats'));
+
+  / Botón MSAL login
+document.getElementById('btn-msal-login')?.addEventListener('click', () => {
+  auth.msalLogin(async () => {
+    await enterApp();
+  });
+});
+ 
+// Link "Acceso con PIN" desde auth-screen
+document.getElementById('btn-show-pin')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  auth.showPin(async () => {
+    await enterApp();
+  });
+});
+ 
 
   // Admin
   document.getElementById('admin-btn')?.addEventListener('click', enterAdmin);
