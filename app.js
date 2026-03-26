@@ -17,6 +17,12 @@ let currentView = 'grid';
 let bookings = {};
 let mBlocked = {};
 
+// Helper para exponer en window para debug
+function exposeGlobals() {
+  window.bookings = bookings;
+  window.mBlocked = mBlocked;
+}
+
 // Helpers para sesión
 function getToken() { return auth.getAuthToken(); }
 function getRole() { return auth.getRole(); }
@@ -31,6 +37,7 @@ function renderGrid() {
     openModal, doUnblock, doCancel, doBlock,
   });
 }
+
 function renderList() {
   ui.renderList({
     bookings, ROWS, FDAYS, currentView, role: getRole(), doCancel
@@ -79,6 +86,7 @@ function doBlock(key, wOff, dIdx, pLabel, pTime) {
       const loaded = await api.loadBookings(getToken());
       bookings = loaded.bookings || {};
       mBlocked = loaded.mBlocked || {};
+      exposeGlobals();
     },
     renderGrid
   );
@@ -126,6 +134,7 @@ async function enterApp() {
     const loaded = await api.loadBookings(getToken());
     bookings = loaded.bookings || {};
     mBlocked = loaded.mBlocked || {};
+    exposeGlobals();
     ui.hideStatus(); renderGrid();
   } catch (e) {
     ui.showStatus('Error al conectar: ' + e.message, 'err');
@@ -137,16 +146,19 @@ async function enterApp() {
 function enterAdmin() {
   auth.showPin(() => {
     renderGrid();
+    exposeGlobals();
   });
 }
 function salirAdmin() {
   auth.exitRole();
   renderGrid();
+  exposeGlobals();
 }
 
 // Restore session
 auth.restoreSession(() => {
   renderGrid();
+  exposeGlobals();
 });
 
 // DOMContentLoaded: listeners
@@ -182,4 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderWeekLabel();
   renderGrid();
   updateTodayBtn();
+
+  // Expose init
+  exposeGlobals();
 });
