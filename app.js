@@ -5,23 +5,25 @@ import * as auth from './auth.js';
 import {
   DAYS, FDAYS, ROWS, HOLIDAYS, TEACHING, SCHOOL_END
 } from './config.js';
+// Si tus helpers de fechas están en config.js, reemplaza la siguiente línea:
 import {
   getMonday, getCellDate, dStr, fmtDate, slotKey,
   isToday, isPast, isPastSchoolEnd,
   getWeekBookings, getMonthBookings, getUsageRate, getTopTeachers, getBusiestDay
 } from './calendar.js';
 
+// Estado global local
 let isAdmin    = false;
 let weekOff    = 0;
 let currentView = 'grid';
 let bookings   = {};
 let mBlocked   = {};
 
-// Utilities
+// ----- Helpers para acceder a sesión actual -----
 function getToken() { return auth.getAuthToken(); }
 function getRole()  { return auth.getRole(); }
 
-// Actualiza según estado/rol
+// ------ Render / Delegates ------
 function renderGrid() {
   isAdmin = getRole() === 'admin';
   ui.renderGrid({
@@ -31,7 +33,6 @@ function renderGrid() {
     openModal, doUnblock, doCancel, doBlock,
   });
 }
-
 function renderList() {
   ui.renderList({
     bookings, ROWS, FDAYS, currentView, role: getRole(), doCancel
@@ -44,7 +45,7 @@ function renderStats() {
   });
 }
 
-// Modals
+// ------ Modals ------
 function openModal(wOff, dIdx, pLabel, pTime, key) {
   modal.openModal({
     wOff, dIdx, pLabel, pTime, key,
@@ -85,7 +86,7 @@ function doBlock(key, wOff, dIdx, pLabel, pTime) {
   );
 }
 
-// Semana y navigation
+// ------ Semana, navegación y vistas ------
 function renderWeekLabel() {
   ui.renderWeekLabel({ getMonday, weekOff });
 }
@@ -107,6 +108,7 @@ function updateTodayBtn() {
     btn.title = 'Ir a la semana actual';
   }
 }
+
 function setView(v) {
   currentView = v;
   ['grid', 'list', 'stats'].forEach(n => {
@@ -117,7 +119,7 @@ function setView(v) {
   if (v === 'stats') renderStats();
 }
 
-// App entry/init
+// ------ Cargar/cambiar datos ------
 async function enterApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('main-app').classList.remove('hidden');
@@ -135,7 +137,7 @@ async function enterApp() {
   }
 }
 
-// ADMIN actions
+// ADMIN (PIN auth)
 function enterAdmin() {
   auth.showPin(() => {
     renderGrid();
@@ -146,26 +148,31 @@ function salirAdmin() {
   renderGrid();
 }
 
-// Restore session al cargar
+// ------ Restaurar sesión si hay ------
 auth.restoreSession(() => {
   renderGrid();
 });
 
-// DOMContentLoaded (bindings)
+// ------ DOMContentLoaded (bindings) ------
 document.addEventListener('DOMContentLoaded', () => {
+  // Navegación principal
   document.getElementById('btn-enter-app')?.addEventListener('click', enterApp);
-
   document.getElementById('btn-prev-week')?.addEventListener('click', () => changeWeek(-1));
   document.getElementById('btn-next-week')?.addEventListener('click', () => changeWeek(1));
   document.getElementById('btn-today')?.addEventListener('click', goToday);
-  
   document.getElementById('tab-grid')?.addEventListener('click', () => setView('grid'));
   document.getElementById('tab-list')?.addEventListener('click', () => setView('list'));
   document.getElementById('tab-stats')?.addEventListener('click', () => setView('stats'));
 
+  // Auth: inline PIN + salida
   document.getElementById('admin-btn')?.addEventListener('click', enterAdmin);
   document.getElementById('exit-admin-btn')?.addEventListener('click', salirAdmin);
 
+  // Modo oscuro
+  document.getElementById('theme-toggle')?.addEventListener('click', ui.toggleTheme);
+  ui.setInitialThemeIcon();
+
+  // Modals generales y cierre (cierren modales, cancelaciones, etc)
   document.getElementById('btn-close-modal')?.addEventListener('click', modal.closeModal);
   document.getElementById('modal')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal')) modal.closeModal();
@@ -179,5 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target === document.getElementById('cancel-modal')) modal.closeCancelModal();
   });
 
-  renderWeekLabel(); renderGrid(); updateTodayBtn();
+  renderWeekLabel();
+  renderGrid();
+  updateTodayBtn();
 });
