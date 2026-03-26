@@ -26,8 +26,6 @@ function exposeGlobals() {
 function getToken() { return auth.getAuthToken(); }
 function getRole()  { return auth.getRole(); }
 
-// ─── Carga centralizada de bookings ──────────────────────────────────────────
-
 async function refreshBookings() {
   try {
     const loaded = await api.loadBookings(getToken());
@@ -38,8 +36,6 @@ async function refreshBookings() {
     ui.showStatus('Error al cargar reservas: ' + e.message, 'err');
   }
 }
-
-// ─── Render helpers ───────────────────────────────────────────────────────────
 
 function renderGrid(loading = false) {
   isAdmin = getRole() === 'admin';
@@ -52,9 +48,7 @@ function renderGrid(loading = false) {
 }
 
 function renderList() {
-  ui.renderList({
-    bookings, ROWS, FDAYS, role: getRole(), doCancel
-  });
+  ui.renderList({ bookings, ROWS, FDAYS, role: getRole(), doCancel });
 }
 
 function renderStats() {
@@ -63,8 +57,6 @@ function renderStats() {
     bookings, mBlocked, ROWS, FDAYS,
   });
 }
-
-// ─── Modal ────────────────────────────────────────────────────────────────────
 
 function openModal(wOff, dIdx, pLabel, pTime, key) {
   modal.openModal({
@@ -85,12 +77,9 @@ function doCancel(key, booking) {
 
 function doUnblock(key) {
   modal.doUnblock(
-    key,
-    modal.showConfirmDialog,
+    key, modal.showConfirmDialog,
     (id) => api.cancelOnServer(id, null, getToken()),
-    mBlocked,
-    renderGrid,
-    ui.showToast
+    mBlocked, renderGrid, ui.showToast
   );
 }
 
@@ -98,14 +87,12 @@ function doBlock(key, wOff, dIdx, pLabel, pTime) {
   modal.doBlock(
     key, wOff, dIdx, pLabel, pTime,
     FDAYS, fmtDate, modal.showConfirmDialog,
-    (key) => api.checkConflict(key, getToken()),
+    (k) => api.checkConflict(k, getToken()),
     ui.showToast,
     async () => { await refreshBookings(); },
     renderGrid
   );
 }
-
-// ─── Navegación semanal ───────────────────────────────────────────────────────
 
 function renderWeekLabel() {
   ui.renderWeekLabel({ getMonday, weekOff });
@@ -131,14 +118,12 @@ function updateTodayBtn() {
 function setView(v) {
   currentView = v;
   ['grid', 'list', 'stats'].forEach(n => {
-    document.getElementById(`view-${n}`)?.classList.toggle('hidden', v !== n);
-    document.getElementById(`tab-${n}`)?.classList.toggle('active', v === n);
+    document.getElementById('view-' + n)?.classList.toggle('hidden', v !== n);
+    document.getElementById('tab-' + n)?.classList.toggle('active', v === n);
   });
   if (v === 'list')  renderList();
   if (v === 'stats') renderStats();
 }
-
-// ─── Enter app ────────────────────────────────────────────────────────────────
 
 async function enterApp() {
   document.getElementById('auth-screen').classList.add('hidden');
@@ -147,13 +132,11 @@ async function enterApp() {
   renderWeekLabel();
   renderGrid();
   updateTodayBtn();
-  ui.showStatus('Cargando disponibilidad…', 'ok');
+  ui.showStatus('Cargando disponibilidad...', 'ok');
   await refreshBookings();
   ui.hideStatus();
   renderGrid();
 }
-
-// ─── Admin ────────────────────────────────────────────────────────────────────
 
 function enterAdmin() {
   auth.showPin(async () => {
@@ -167,42 +150,30 @@ function salirAdmin() {
   exposeGlobals();
 }
 
-// ─── DOMContentLoaded ─────────────────────────────────────────────────────────
-
 document.addEventListener('DOMContentLoaded', async () => {
-  // Navegación y vistas
-   document.getElementById('btn-prev-week')?.addEventListener('click', () => changeWeek(-1));
+  document.getElementById('btn-msal-login')?.addEventListener('click', () => {
+    auth.msalLogin(async () => { await enterApp(); });
+  });
+
+  document.getElementById('btn-show-pin')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    auth.showPin(async () => { await enterApp(); });
+  });
+
+  document.getElementById('btn-prev-week')?.addEventListener('click', () => changeWeek(-1));
   document.getElementById('btn-next-week')?.addEventListener('click', () => changeWeek(1));
   document.getElementById('btn-today')?.addEventListener('click', goToday);
-  document.getElementById('tab-grid')?.addEventListener('click', () => setView('grid'));
-  document.getElementById('tab-list')?.addEventListener('click', () => setView('list'));
+
+  document.getElementById('tab-grid')?.addEventListener('click',  () => setView('grid'));
+  document.getElementById('tab-list')?.addEventListener('click',  () => setView('list'));
   document.getElementById('tab-stats')?.addEventListener('click', () => setView('stats'));
 
-  / Botón MSAL login
-document.getElementById('btn-msal-login')?.addEventListener('click', () => {
-  auth.msalLogin(async () => {
-    await enterApp();
-  });
-});
- 
-// Link "Acceso con PIN" desde auth-screen
-document.getElementById('btn-show-pin')?.addEventListener('click', (e) => {
-  e.preventDefault();
-  auth.showPin(async () => {
-    await enterApp();
-  });
-});
- 
-
-  // Admin
   document.getElementById('admin-btn')?.addEventListener('click', enterAdmin);
   document.getElementById('exit-admin-btn')?.addEventListener('click', salirAdmin);
 
-  // Tema
   document.getElementById('theme-toggle')?.addEventListener('click', ui.toggleTheme);
   ui.setInitialThemeIcon();
 
-  // Modales — cierre
   document.getElementById('btn-close-modal')?.addEventListener('click', modal.closeModal);
   document.getElementById('modal')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal')) modal.closeModal();
@@ -216,15 +187,13 @@ document.getElementById('btn-show-pin')?.addEventListener('click', (e) => {
     if (e.target === document.getElementById('cancel-modal')) modal.closeCancelModal();
   });
 
-  // ESC global
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     if (!document.getElementById('confirm-modal').classList.contains('hidden')) { modal.closeConfirmDialog(); return; }
-    if (!document.getElementById('modal').classList.contains('hidden')) { modal.closeModal(); return; }
-    if (!document.getElementById('cancel-modal').classList.contains('hidden')) { modal.closeCancelModal(); return; }
+    if (!document.getElementById('modal').classList.contains('hidden'))         { modal.closeModal(); return; }
+    if (!document.getElementById('cancel-modal').classList.contains('hidden'))  { modal.closeCancelModal(); return; }
   });
 
-  // Conectar form.js con api.js
   form.initConfirmBooking({
     checkConflict:  (key) => api.checkConflict(key, getToken()),
     saveBooking:    (key, data) => api.saveBooking(key, data, getToken(), getCellDate, dStr, FDAYS),
@@ -235,13 +204,11 @@ document.getElementById('btn-show-pin')?.addEventListener('click', (e) => {
     closeModal:     modal.closeModal,
   });
 
-  // Render inicial
   renderWeekLabel();
   renderGrid();
   updateTodayBtn();
   exposeGlobals();
 
-  // Restore session
   await auth.restoreSession(async () => {
     await refreshBookings();
     renderGrid();
