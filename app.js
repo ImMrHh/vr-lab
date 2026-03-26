@@ -28,11 +28,14 @@ function getRole()  { return auth.getRole(); }
 
 async function refreshBookings() {
   try {
+    console.log('[app] refreshBookings: solicitando bookings con token?', !!getToken());
     const loaded = await api.loadBookings(getToken());
-    bookings = loaded.bookings || {};
-    mBlocked = loaded.mBlocked || {};
+    console.log('[app] refreshBookings: respuesta cargada', loaded);
+    bookings = loaded?.bookings || {};
+    mBlocked = loaded?.mBlocked || {};
     exposeGlobals();
   } catch (e) {
+    console.error('[app] refreshBookings error', e);
     ui.showStatus('Error al cargar reservas: ' + e.message, 'err');
   }
 }
@@ -126,9 +129,10 @@ function setView(v) {
 }
 
 async function enterApp() {
-  document.getElementById('auth-screen').classList.add('hidden');
-  document.getElementById('main-app').classList.remove('hidden');
-  document.getElementById('admin-btn').classList.remove('hidden');
+  console.log('[app] enterApp: entrando a la app');
+  document.getElementById('auth-screen')?.classList.add('hidden');
+  document.getElementById('main-app')?.classList.remove('hidden');
+  document.getElementById('admin-btn')?.classList.remove('hidden');
   renderWeekLabel();
   renderGrid();
   updateTodayBtn();
@@ -139,26 +143,51 @@ async function enterApp() {
 }
 
 function enterAdmin() {
+  console.log('[app] enterAdmin: mostrando pin');
   auth.showPin(async () => {
     await refreshBookings();
     renderGrid();
   });
 }
 function salirAdmin() {
+  console.log('[app] salirAdmin: saliendo de admin');
   auth.exitRole();
   renderGrid();
   exposeGlobals();
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-  document.getElementById('btn-msal-login')?.addEventListener('click', () => {
-    auth.msalLogin(async () => { await enterApp(); });
-  });
+/* Exponer callback para pin success para que auth.showPin pueda invocar enterApp */
+window.onPinSuccess = async function() {
+  try {
+    await enterApp();
+  } catch (e) {
+    console.error('[app] onPinSuccess error', e);
+  }
+};
 
-  document.getElementById('btn-show-pin')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    auth.showPin(async () => { await enterApp(); });
-  });
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('DOM listo - registrando handlers principales');
+
+  const msalBtn = document.getElementById('btn-msal-login');
+  if (msalBtn) {
+    msalBtn.addEventListener('click', () => {
+      console.log('btn-msal-login clicked');
+      auth.msalLogin(async () => { await enterApp(); });
+    });
+  } else {
+    console.warn('btn-msal-login no encontrado');
+  }
+
+  const pinBtn = document.getElementById('btn-show-pin');
+  if (pinBtn) {
+    pinBtn.addEventListener('click', (e) => {
+      console.log('btn-show-pin clicked (app.js handler)');
+      e.preventDefault();
+      auth.showPin(async () => { await enterApp(); });
+    });
+  } else {
+    console.warn('btn-show-pin no encontrado');
+  }
 
   document.getElementById('btn-prev-week')?.addEventListener('click', () => changeWeek(-1));
   document.getElementById('btn-next-week')?.addEventListener('click', () => changeWeek(1));
@@ -209,7 +238,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateTodayBtn();
   exposeGlobals();
 
+  console.log('[app] intentando restaurar sesión');
   await auth.restoreSession(async () => {
+    console.log('[app] sesión restaurada, refrescando bookings');
     await refreshBookings();
     renderGrid();
   });
