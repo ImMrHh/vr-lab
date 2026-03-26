@@ -23,8 +23,30 @@ export function populateTeachers() {
     sel.appendChild(opt);
   });
   sel.onchange = onTeacherChange;
+ 
+  // Pre-llenar y bloquear si hay usuario MSAL activo
+  // Importar getMSALUser desde auth.js:
+  //   import { getMSALUser } from './auth.js';  ← agregar al import de form.js
+  const msalUser = getMSALUser();
+  if (msalUser) {
+    // Buscar nombre en TEACHER_DATA (coincidencia parcial por primer nombre)
+    const match = Object.keys(TEACHER_DATA).find(name =>
+      msalUser.name.toLowerCase().includes(name.toLowerCase()) ||
+      name.toLowerCase().includes(msalUser.name.split(' ')[0].toLowerCase())
+    );
+    if (match) {
+      sel.value = match;
+      onTeacherChange();
+    } else {
+      // Si no hay match exacto, agregar como opción temporal
+      const opt = document.createElement('option');
+      opt.value = msalUser.name; opt.textContent = msalUser.name;
+      sel.appendChild(opt);
+      sel.value = msalUser.name;
+    }
+    sel.disabled = true;  // bloquear campo
+  }
 }
-
 // ─── Cambio de profesor → actualiza materias ─────────────────────────────────
 
 export function onTeacherChange() {
