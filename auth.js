@@ -7,10 +7,11 @@ import { AUTH_URL } from './config.js';
 
 // ─── Estado interno ───────────────────────────────────────────────────────────
 
-let _authToken  = null;   // token de sesión (KV Worker)
-let _role       = null;   // 'profesor' | 'coordinacion' | 'admin'
-let _msalUser   = null;   // { name, email } si autenticado vía SSO
-let _pinBuffer  = '';     // dígitos acumulados del keypad
+let _authToken = null;   // token de sesión (KV Worker)
+let _role      = null;   // 'profesor' | 'coordinacion' | 'admin'
+let _msalUser  = null;   // { name, email } si autenticado vía SSO
+let _pinBuffer = '';     // dígitos acumulados del keypad
+let _msalApp   = null;   // instancia MSAL pre-inicializada
 
 // ─── Getters públicos ─────────────────────────────────────────────────────────
 
@@ -35,22 +36,38 @@ function getMSALConfig() {
   };
 }
 
+// ─── Pre-inicializar MSAL al cargar el módulo ─────────────────────────────────
+// Se hace aquí (fuera de cualquier handler) para que cuando el usuario presione
+// el botón, loginPopup() se llame en el mismo tick del evento — sin awaits previos
+// que rompan la cadena de confianza del navegador y activen el bloqueador de popups.
+
+export async function initMSAL() {
+  if (typeof msal === 'undefined') return;
+  try {
+    _msalApp = new msal.PublicClientApplication(getMSALConfig());
+    await _msalApp.initialize();
+    // NO llamamos handleRedirectPromise() aquí — no usamos redirect flow,
+    // solo popup, y handleRedirectPromise() en la ventana principal interfiere
+    // con el cierre del popup en algunos navegadores.
+  } catch (err) {
+    console.warn('MSAL init error:', err);
+    _msalApp = null;
+  }
+}
+
 // ─── MSAL login (popup flow) ──────────────────────────────────────────────────
 
 export async function msalLogin(onSuccess) {
   _showSSOError('');
 
-  if (typeof msal === 'undefined') {
+  if (!_msalApp) {
     _showSSOError('SSO no disponible. Usa PIN para continuar.');
     return;
   }
 
   try {
-    const msalApp = new msal.PublicClientApplication(getMSALConfig());
-    await msalApp.initialize();
-    await msalApp.handleRedirectPromise();
-
-    const result = await msalApp.loginPopup({ scopes: MSAL_SCOPES });
+    // loginPopup se llama directamente — sin awaits previos desde el evento de click
+    const result = await _msalApp.loginPopup({ scopes: MSAL_SCOPES });
 
     if (!result?.account) {
       _showSSOError('No se pudo obtener la cuenta. Intenta de nuevo.');
@@ -163,7 +180,6 @@ export function showPin(onSuccess) {
         if (errEl) errEl.textContent = data.error || 'PIN incorrecto';
         _pinBuffer = '';
         _updateDots();
-        // Re-registrar listener para nuevo intento
         document.addEventListener('keydown', keyHandler);
       }
     } catch {
@@ -178,10 +194,7 @@ export function showPin(onSuccess) {
 
   // ── Teclado físico ─────────────────────────────────────────────────────────
   const keyHandler = async (e) => {
-    if (e.key === 'Escape') {
-      closePin();
-      return;
-    }
+    if (e.key === 'Escape') { closePin(); return; }
     if (e.key === 'Backspace') {
       _pinBuffer = _pinBuffer.slice(0, -1);
       _updateDots();
@@ -197,8 +210,7 @@ export function showPin(onSuccess) {
   document.addEventListener('keydown', keyHandler);
 
   // ── Keypad táctil — clonar para limpiar listeners previos ─────────────────
-  const oldKeys = document.querySelectorAll('.pin-key');
-  oldKeys.forEach(key => {
+  document.querySelectorAll('.pin-key').forEach(key => {
     const fresh = key.cloneNode(true);
     key.parentNode.replaceChild(fresh, key);
   });
@@ -207,7 +219,6 @@ export function showPin(onSuccess) {
     key.addEventListener('click', async () => {
       const val = key.dataset.pin;
       if (!val) return;
-
       if (val === 'del') {
         _pinBuffer = _pinBuffer.slice(0, -1);
         _updateDots();
@@ -216,7 +227,6 @@ export function showPin(onSuccess) {
       if (_pinBuffer.length >= 4) return;
       _pinBuffer += val;
       _updateDots();
-
       if (_pinBuffer.length === 4) await doSubmit();
     });
   });
