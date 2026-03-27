@@ -10,6 +10,7 @@ import { AUTH_URL } from './config.js';
 let _authToken = null;   // token de sesión (KV Worker)
 let _role      = null;   // 'profesor' | 'coordinacion' | 'admin'
 let _msalUser  = null;   // { name, email } si autenticado vía SSO
+let _pinBuffer = '';     // dígitos acumulados del keypad
 
 // ─── Getters públicos ─────────────────────────────────────────────────────────
 
@@ -37,10 +38,7 @@ function getMSALConfig() {
 // ─── MSAL login (popup flow) ──────────────────────────────────────────────────
 
 export async function msalLogin(onSuccess) {
-  const btnMsal = document.getElementById('btn-msal-login');
-  const errEl   = document.getElementById('sso-error');
-
-  if (errEl) errEl.classList.add('hidden');
+  _showSSOError('');
 
   if (typeof msal === 'undefined') {
     _showSSOError('SSO no disponible. Usa PIN para continuar.');
@@ -50,8 +48,6 @@ export async function msalLogin(onSuccess) {
   try {
     const msalApp = new msal.PublicClientApplication(getMSALConfig());
     await msalApp.initialize();
-
-    // Manejar redirect si viene de un flujo previo
     await msalApp.handleRedirectPromise();
 
     const result = await msalApp.loginPopup({ scopes: MSAL_SCOPES });
@@ -61,18 +57,19 @@ export async function msalLogin(onSuccess) {
       return;
     }
 
-    const account = result.account;
-    const email   = account.username || account.idTokenClaims?.email || '';
-    const name    = account.name || account.idTokenClaims?.name || email.split('@')[0];
+    const account     = result.account;
+    const email       = account.username || account.idTokenClaims?.email || '';
+    const name        = account.name || account.idTokenClaims?.name || email.split('@')[0];
+    const accessToken = result.accessToken;
 
-    // Verificar dominio institucional
+    // Verificar dominio institucional (defensa en frontend)
     if (!email.endsWith('@cuam.edu.mx') && !email.endsWith('@ceam.edu.mx')) {
       _showSSOError('Usa tu cuenta institucional (@cuam.edu.mx o @ceam.edu.mx).');
       return;
     }
 
-    // Obtener token de sesión del Worker
-    const token = await _exchangeForSessionToken(email, name);
+    // Intercambiar por token de sesión Worker (verificación real en servidor)
+    const token = await _exchangeForSessionToken(email, name, accessToken);
     if (!token) {
       _showSSOError('Error al iniciar sesión. Intenta de nuevo.');
       return;
@@ -96,14 +93,15 @@ export async function msalLogin(onSuccess) {
   }
 }
 
-// ─── Intercambio MSAL token → sesión Worker ───────────────────────────────────
+// ─── Intercambio MSAL accessToken → sesión Worker ────────────────────────────
+// El Worker llama a Graph /me con este token para verificar la identidad.
 
-async function _exchangeForSessionToken(email, name) {
+async function _exchangeForSessionToken(email, name, accessToken) {
   try {
     const r = await fetch(`${AUTH_URL}/sso`, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name }),
+      body:    JSON.stringify({ email, name, accessToken }),
     });
     const data = await r.json();
     return data.token || null;
@@ -112,87 +110,139 @@ async function _exchangeForSessionToken(email, name) {
   }
 }
 
-// ─── PIN flow ─────────────────────────────────────────────────────────────────
+// ─── PIN flow — usa el keypad numérico del index.html ─────────────────────────
+//
+// IDs esperados en el DOM:
+//   #pin-screen       — pantalla completa de PIN (hidden/visible)
+//   #pin-dots         — contenedor de puntos indicadores
+//   #d0 #d1 #d2 #d3  — puntos individuales
+//   .pin-key          — botones del keypad (data-pin="0-9" | "del")
+//   #pin-error        — mensaje de error
+//   #btn-cancel-pin   — botón cancelar / volver a auth-screen
 
-/**
- * Muestra el panel de PIN y autentica contra el Worker.
- * onSuccess se llama con el rol obtenido.
- */
 export function showPin(onSuccess) {
-  const overlay = document.getElementById('pin-overlay');
-  const input   = document.getElementById('pin-input');
+  const screen  = document.getElementById('pin-screen');
   const errEl   = document.getElementById('pin-error');
-  const btn     = document.getElementById('pin-submit');
+  const keys    = document.querySelectorAll('.pin-key');
+  const cancelBtn = document.getElementById('btn-cancel-pin');
 
-  if (!overlay) { console.error('pin-overlay no encontrado'); return; }
+  if (!screen) { console.error('pin-screen no encontrado'); return; }
 
-  errEl?.classList.add('hidden');
-  if (input) input.value = '';
-  overlay.classList.remove('hidden');
-  setTimeout(() => input?.focus(), 100);
+  // Reset estado
+  _pinBuffer = '';
+  _updateDots();
+  if (errEl) errEl.textContent = '';
 
-  // Limpiar listeners previos clonando el botón
-  const newBtn = btn.cloneNode(true);
-  btn.parentNode.replaceChild(newBtn, btn);
+  // Mostrar pantalla PIN, ocultar auth-screen
+  document.getElementById('auth-screen')?.classList.add('hidden');
+  screen.classList.remove('hidden');
 
-  const doSubmit = async () => {
-    const pin = input?.value.trim();
-    if (!pin) return;
-
-    newBtn.disabled = true;
-    newBtn.textContent = 'Verificando…';
-    errEl?.classList.add('hidden');
-
-    try {
-      const result = await _verifyPin(pin);
-      if (result.ok) {
-        _authToken = result.token;
-        _role      = result.role;
-        _msalUser  = null;
-
-        _persistSession();
-        _updateRoleBadge();
-        overlay.classList.add('hidden');
-        if (onSuccess) await onSuccess();
-      } else {
-        _showPinError(result.message || 'PIN incorrecto');
-      }
-    } catch (e) {
-      _showPinError('Error de red. Intenta de nuevo.');
-    } finally {
-      newBtn.disabled = false;
-      newBtn.textContent = 'Entrar';
-    }
-  };
-
-  newBtn.addEventListener('click', doSubmit);
-  input?.addEventListener('keydown', e => { if (e.key === 'Enter') doSubmit(); });
-
-  // Botón cerrar overlay
-  document.getElementById('pin-close')?.addEventListener('click', () => {
-    overlay.classList.add('hidden');
+  // Limpiar listeners previos clonando cada key
+  keys.forEach(key => {
+    const fresh = key.cloneNode(true);
+    key.parentNode.replaceChild(fresh, key);
   });
+  const freshKeys = document.querySelectorAll('.pin-key');
+
+  freshKeys.forEach(key => {
+    key.addEventListener('click', async () => {
+      const val = key.dataset.pin;
+      if (!val) return;
+
+      if (val === 'del') {
+        _pinBuffer = _pinBuffer.slice(0, -1);
+        _updateDots();
+        return;
+      }
+
+      if (_pinBuffer.length >= 4) return;
+      _pinBuffer += val;
+      _updateDots();
+
+      // Auto-submit al completar 4 dígitos
+      if (_pinBuffer.length === 4) {
+        await _submitPin(onSuccess);
+      }
+    });
+  });
+
+  // Cancelar → volver a auth-screen
+  const freshCancel = cancelBtn?.cloneNode(true);
+  if (freshCancel) {
+    cancelBtn.parentNode.replaceChild(freshCancel, cancelBtn);
+    freshCancel.addEventListener('click', () => {
+      screen.classList.add('hidden');
+      document.getElementById('auth-screen')?.classList.remove('hidden');
+      _pinBuffer = '';
+      _updateDots();
+      if (errEl) errEl.textContent = '';
+    });
+  }
+}
+
+function _updateDots() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById(`d${i}`);
+    if (dot) dot.classList.toggle('filled', i < _pinBuffer.length);
+  }
+}
+
+async function _submitPin(onSuccess) {
+  const errEl = document.getElementById('pin-error');
+  const keys  = document.querySelectorAll('.pin-key');
+
+  // Deshabilitar keypad durante verificación
+  keys.forEach(k => k.disabled = true);
+  if (errEl) errEl.textContent = '';
+
+  try {
+    const result = await _verifyPin(_pinBuffer);
+    if (result.ok) {
+      _authToken = result.token;
+      _role      = result.role;
+      _msalUser  = null;
+
+      _persistSession();
+      _updateRoleBadge();
+      document.getElementById('pin-screen')?.classList.add('hidden');
+      if (onSuccess) await onSuccess();
+    } else {
+      if (errEl) errEl.textContent = result.message || 'PIN incorrecto';
+      _pinBuffer = '';
+      _updateDots();
+    }
+  } catch {
+    if (errEl) errEl.textContent = 'Error de red. Intenta de nuevo.';
+    _pinBuffer = '';
+    _updateDots();
+  } finally {
+    keys.forEach(k => k.disabled = false);
+  }
 }
 
 async function _verifyPin(pin) {
-  const r = await fetch(`${AUTH_URL}/login`, {
-    method: 'POST',
+  const r = await fetch(`${AUTH_URL}/auth`, {
+    method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin }),
+    body:    JSON.stringify({ pin }),
   });
   const data = await r.json();
   if (data.token) return { ok: true, token: data.token, role: data.role };
   return { ok: false, message: data.error || 'PIN incorrecto' };
 }
 
-// ─── Salir de rol (volver a público) ─────────────────────────────────────────
+// ─── Salir de rol (volver a pantalla de auth) ─────────────────────────────────
 
 export function exitRole() {
   _authToken = null;
   _role      = null;
   _msalUser  = null;
+  _pinBuffer = '';
   sessionStorage.removeItem('vr_session');
   _updateRoleBadge();
+
+  document.getElementById('main-app')?.classList.add('hidden');
+  document.getElementById('auth-screen')?.classList.remove('hidden');
 }
 
 // ─── Restaurar sesión al cargar ───────────────────────────────────────────────
@@ -205,13 +255,9 @@ export async function restoreSession(onRestored) {
     const { token, role, msalUser } = JSON.parse(saved);
     if (!token || !role) return;
 
-    // Validar token con el Worker
-    const r = await fetch(`${AUTH_URL}/verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+    // Validar token con el Worker (endpoint /auth/check)
+    const r = await fetch(`${AUTH_URL}/auth/check`, {
+      headers: { 'Authorization': `Bearer ${token}` },
     });
     const data = await r.json();
     if (!data.valid) { sessionStorage.removeItem('vr_session'); return; }
@@ -222,10 +268,9 @@ export async function restoreSession(onRestored) {
 
     _updateRoleBadge();
 
-    // Si había sesión, entrar directo a la app
     document.getElementById('auth-screen')?.classList.add('hidden');
+    document.getElementById('pin-screen')?.classList.add('hidden');
     document.getElementById('main-app')?.classList.remove('hidden');
-    document.getElementById('admin-btn')?.classList.remove('hidden');
 
     if (onRestored) await onRestored();
 
@@ -245,8 +290,9 @@ function _persistSession() {
 }
 
 function _updateRoleBadge() {
-  const badge = document.getElementById('role-badge');
-  const exitBtn = document.getElementById('exit-admin-btn');
+  // IDs existentes en index.html: admin-badge, exit-admin-btn, admin-btn
+  const badge    = document.getElementById('admin-badge');
+  const exitBtn  = document.getElementById('exit-admin-btn');
   const adminBtn = document.getElementById('admin-btn');
 
   if (!_role) {
@@ -273,10 +319,14 @@ function _updateRoleBadge() {
 
 function _showPinError(msg) {
   const errEl = document.getElementById('pin-error');
-  if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+  if (errEl) errEl.textContent = msg;
 }
 
 function _showSSOError(msg) {
-  const errEl = document.getElementById('sso-error');
-  if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+  // index.html usa auth-error (no sso-error)
+  const errEl = document.getElementById('auth-error');
+  if (errEl) {
+    errEl.textContent = msg;
+    errEl.classList.toggle('hidden', !msg);
+  }
 }
