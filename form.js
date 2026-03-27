@@ -5,6 +5,7 @@
 
 import { TEACHER_DATA, FDAYS } from './config.js';
 import { showToast } from './ui.js';
+import { getMSALUser } from './auth.js';
 
 function sanitizeField(str) {
   if (typeof str !== 'string') return '';
@@ -25,8 +26,6 @@ export function populateTeachers() {
   sel.onchange = onTeacherChange;
  
   // Pre-llenar y bloquear si hay usuario MSAL activo
-  // Importar getMSALUser desde auth.js:
-  //   import { getMSALUser } from './auth.js';  ← agregar al import de form.js
   const msalUser = getMSALUser();
   if (msalUser) {
     // Buscar nombre en TEACHER_DATA (coincidencia parcial por primer nombre)
