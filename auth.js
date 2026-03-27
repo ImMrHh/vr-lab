@@ -22,18 +22,20 @@ let _msalInstance = null;
 
 async function getMSAL() {
   if (_msalInstance) return _msalInstance;
-  // Carga MSAL desde CDN si no está disponible
   if (!window.msal) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
+      // jsDelivr — más permisivo que alcdn.msauth.net
       s.src = 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js';
       s.onload = resolve;
-      s.onerror = () => reject(new Error('No se pudo cargar MSAL'));
+      s.onerror = () => reject(new Error('MSAL_LOAD_FAILED'));
       document.head.appendChild(s);
     });
   }
   _msalInstance = new window.msal.PublicClientApplication(MSAL_CONFIG);
   await _msalInstance.initialize();
+  // Limpiar redirect pendiente sin lanzar error
+  await _msalInstance.handleRedirectPromise().catch(() => {});
   return _msalInstance;
 }
 
@@ -82,7 +84,9 @@ export async function msalLogin(onSuccess) {
     enterRole('profesor', onSuccess);
   } catch (e) {
     if (e.errorCode === 'user_cancelled') return;
-    showAuthError('Error SSO: ' + (e.message || e) + '. Usa el PIN de acceso.');
+    // Falla silenciosa en dev/orígenes no registrados en Azure
+    // El PIN sigue funcionando independientemente
+    showAuthError('SSO no disponible en este entorno. Usa el PIN de acceso.');
   }
 }
 
