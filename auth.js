@@ -202,6 +202,7 @@ export function showPin(onSuccess) {
   updateDots(pinVal);
   document.getElementById('pin-screen').classList.remove('hidden');
   document.getElementById('main-app').classList.add('hidden');
+  document.getElementById('auth-screen')?.classList.add('hidden');
 
   if (_pinHandler) document.removeEventListener('keydown', _pinHandler);
   _pinHandler = function (e) {
@@ -264,7 +265,12 @@ export function showPin(onSuccess) {
 
 export function hidePinScreen() {
   document.getElementById('pin-screen').classList.add('hidden');
-  document.getElementById('main-app').classList.remove('hidden');
+  const hasSession = sessionStorage.getItem('vr-booking-role');
+  if (hasSession) {
+    document.getElementById('main-app').classList.remove('hidden');
+  } else {
+    document.getElementById('auth-screen')?.classList.remove('hidden');
+  }
   if (_pinHandler) {
     document.removeEventListener('keydown', _pinHandler);
     _pinHandler = null;
