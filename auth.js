@@ -11,7 +11,7 @@ const MSAL_CONFIG = {
   auth: {
     clientId:    '656b2863-b415-478d-875a-bc96cd132f00',
     authority:   'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
-    redirectUri: 'https://dev.vr-lab.pages.dev/auth/callback',
+    redirectUri: 'https://portalvr.tech/auth/callback',
   },
   cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
 };
@@ -26,7 +26,7 @@ async function getMSAL() {
   if (!window.msal) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = 'https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js';
+      s.src = 'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js';
       s.onload = resolve;
       s.onerror = reject;
       document.head.appendChild(s);
