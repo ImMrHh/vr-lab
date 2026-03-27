@@ -7,10 +7,10 @@ import { AUTH_URL } from './config.js';
 
 // ─── Estado interno ───────────────────────────────────────────────────────────
 
-let _authToken = null;   // token de sesión (KV Worker)
-let _role      = null;   // 'profesor' | 'coordinacion' | 'admin'
-let _msalUser  = null;   // { name, email } si autenticado vía SSO
-let _pinBuffer = '';     // dígitos acumulados del keypad
+let _authToken  = null;   // token de sesión (KV Worker)
+let _role       = null;   // 'profesor' | 'coordinacion' | 'admin'
+let _msalUser   = null;   // { name, email } si autenticado vía SSO
+let _pinBuffer  = '';     // dígitos acumulados del keypad
 
 // ─── Getters públicos ─────────────────────────────────────────────────────────
 
@@ -62,13 +62,11 @@ export async function msalLogin(onSuccess) {
     const name        = account.name || account.idTokenClaims?.name || email.split('@')[0];
     const accessToken = result.accessToken;
 
-    // Verificar dominio institucional (defensa en frontend)
     if (!email.endsWith('@cuam.edu.mx') && !email.endsWith('@ceam.edu.mx')) {
       _showSSOError('Usa tu cuenta institucional (@cuam.edu.mx o @ceam.edu.mx).');
       return;
     }
 
-    // Intercambiar por token de sesión Worker (verificación real en servidor)
     const token = await _exchangeForSessionToken(email, name, accessToken);
     if (!token) {
       _showSSOError('Error al iniciar sesión. Intenta de nuevo.');
@@ -94,7 +92,6 @@ export async function msalLogin(onSuccess) {
 }
 
 // ─── Intercambio MSAL accessToken → sesión Worker ────────────────────────────
-// El Worker llama a Graph /me con este token para verificar la identidad.
 
 async function _exchangeForSessionToken(email, name, accessToken) {
   try {
@@ -111,19 +108,10 @@ async function _exchangeForSessionToken(email, name, accessToken) {
 }
 
 // ─── PIN flow — usa el keypad numérico del index.html ─────────────────────────
-//
-// IDs esperados en el DOM:
-//   #pin-screen       — pantalla completa de PIN (hidden/visible)
-//   #pin-dots         — contenedor de puntos indicadores
-//   #d0 #d1 #d2 #d3  — puntos individuales
-//   .pin-key          — botones del keypad (data-pin="0-9" | "del")
-//   #pin-error        — mensaje de error
-//   #btn-cancel-pin   — botón cancelar / volver a auth-screen
 
 export function showPin(onSuccess) {
-  const screen  = document.getElementById('pin-screen');
-  const errEl   = document.getElementById('pin-error');
-  const keys    = document.querySelectorAll('.pin-key');
+  const screen    = document.getElementById('pin-screen');
+  const errEl     = document.getElementById('pin-error');
   const cancelBtn = document.getElementById('btn-cancel-pin');
 
   if (!screen) { console.error('pin-screen no encontrado'); return; }
@@ -137,14 +125,85 @@ export function showPin(onSuccess) {
   document.getElementById('auth-screen')?.classList.add('hidden');
   screen.classList.remove('hidden');
 
-  // Limpiar listeners previos clonando cada key
-  keys.forEach(key => {
+  // ── Función de cierre ──────────────────────────────────────────────────────
+  const closePin = () => {
+    document.removeEventListener('keydown', keyHandler);
+    screen.classList.add('hidden');
+    document.getElementById('auth-screen')?.classList.remove('hidden');
+    _pinBuffer = '';
+    _updateDots();
+    if (errEl) errEl.textContent = '';
+  };
+
+  // ── Submit PIN ─────────────────────────────────────────────────────────────
+  const doSubmit = async () => {
+    document.removeEventListener('keydown', keyHandler);
+    const keys = document.querySelectorAll('.pin-key');
+    keys.forEach(k => k.disabled = true);
+    if (errEl) errEl.textContent = '';
+
+    try {
+      const r = await fetch(`${AUTH_URL}/auth`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ pin: _pinBuffer }),
+      });
+      const data = await r.json();
+
+      if (data.token) {
+        _authToken = data.token;
+        _role      = data.role;
+        _msalUser  = null;
+
+        _persistSession();
+        _updateRoleBadge();
+        screen.classList.add('hidden');
+        if (onSuccess) await onSuccess();
+      } else {
+        if (errEl) errEl.textContent = data.error || 'PIN incorrecto';
+        _pinBuffer = '';
+        _updateDots();
+        // Re-registrar listener para nuevo intento
+        document.addEventListener('keydown', keyHandler);
+      }
+    } catch {
+      if (errEl) errEl.textContent = 'Error de red. Intenta de nuevo.';
+      _pinBuffer = '';
+      _updateDots();
+      document.addEventListener('keydown', keyHandler);
+    } finally {
+      keys.forEach(k => k.disabled = false);
+    }
+  };
+
+  // ── Teclado físico ─────────────────────────────────────────────────────────
+  const keyHandler = async (e) => {
+    if (e.key === 'Escape') {
+      closePin();
+      return;
+    }
+    if (e.key === 'Backspace') {
+      _pinBuffer = _pinBuffer.slice(0, -1);
+      _updateDots();
+      return;
+    }
+    if (e.key >= '0' && e.key <= '9') {
+      if (_pinBuffer.length >= 4) return;
+      _pinBuffer += e.key;
+      _updateDots();
+      if (_pinBuffer.length === 4) await doSubmit();
+    }
+  };
+  document.addEventListener('keydown', keyHandler);
+
+  // ── Keypad táctil — clonar para limpiar listeners previos ─────────────────
+  const oldKeys = document.querySelectorAll('.pin-key');
+  oldKeys.forEach(key => {
     const fresh = key.cloneNode(true);
     key.parentNode.replaceChild(fresh, key);
   });
-  const freshKeys = document.querySelectorAll('.pin-key');
 
-  freshKeys.forEach(key => {
+  document.querySelectorAll('.pin-key').forEach(key => {
     key.addEventListener('click', async () => {
       const val = key.dataset.pin;
       if (!val) return;
@@ -154,84 +213,31 @@ export function showPin(onSuccess) {
         _updateDots();
         return;
       }
-
       if (_pinBuffer.length >= 4) return;
       _pinBuffer += val;
       _updateDots();
 
-      // Auto-submit al completar 4 dígitos
-      if (_pinBuffer.length === 4) {
-        await _submitPin(onSuccess);
-      }
+      if (_pinBuffer.length === 4) await doSubmit();
     });
   });
 
-  // Cancelar → volver a auth-screen
+  // ── Cancelar ───────────────────────────────────────────────────────────────
   const freshCancel = cancelBtn?.cloneNode(true);
-  if (freshCancel) {
+  if (freshCancel && cancelBtn) {
     cancelBtn.parentNode.replaceChild(freshCancel, cancelBtn);
-    freshCancel.addEventListener('click', () => {
-      screen.classList.add('hidden');
-      document.getElementById('auth-screen')?.classList.remove('hidden');
-      _pinBuffer = '';
-      _updateDots();
-      if (errEl) errEl.textContent = '';
-    });
+    freshCancel.addEventListener('click', closePin);
   }
 }
+
+// ─── Dots del keypad ──────────────────────────────────────────────────────────
 
 function _updateDots() {
   for (let i = 0; i < 4; i++) {
-    const dot = document.getElementById(`d${i}`);
-    if (dot) dot.classList.toggle('filled', i < _pinBuffer.length);
+    document.getElementById(`d${i}`)?.classList.toggle('filled', i < _pinBuffer.length);
   }
 }
 
-async function _submitPin(onSuccess) {
-  const errEl = document.getElementById('pin-error');
-  const keys  = document.querySelectorAll('.pin-key');
-
-  // Deshabilitar keypad durante verificación
-  keys.forEach(k => k.disabled = true);
-  if (errEl) errEl.textContent = '';
-
-  try {
-    const result = await _verifyPin(_pinBuffer);
-    if (result.ok) {
-      _authToken = result.token;
-      _role      = result.role;
-      _msalUser  = null;
-
-      _persistSession();
-      _updateRoleBadge();
-      document.getElementById('pin-screen')?.classList.add('hidden');
-      if (onSuccess) await onSuccess();
-    } else {
-      if (errEl) errEl.textContent = result.message || 'PIN incorrecto';
-      _pinBuffer = '';
-      _updateDots();
-    }
-  } catch {
-    if (errEl) errEl.textContent = 'Error de red. Intenta de nuevo.';
-    _pinBuffer = '';
-    _updateDots();
-  } finally {
-    keys.forEach(k => k.disabled = false);
-  }
-}
-
-async function _verifyPin(pin) {
-  const r = await fetch(`${AUTH_URL}/auth`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ pin }),
-  });
-  const data = await r.json();
-  if (data.token) return { ok: true, token: data.token, role: data.role };
-  return { ok: false, message: data.error || 'PIN incorrecto' };
-}
-
-// ─── Salir de rol (volver a pantalla de auth) ─────────────────────────────────
+// ─── Salir de rol ─────────────────────────────────────────────────────────────
 
 export function exitRole() {
   _authToken = null;
@@ -255,7 +261,6 @@ export async function restoreSession(onRestored) {
     const { token, role, msalUser } = JSON.parse(saved);
     if (!token || !role) return;
 
-    // Validar token con el Worker (endpoint /auth/check)
     const r = await fetch(`${AUTH_URL}/auth/check`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -290,7 +295,6 @@ function _persistSession() {
 }
 
 function _updateRoleBadge() {
-  // IDs existentes en index.html: admin-badge, exit-admin-btn, admin-btn
   const badge    = document.getElementById('admin-badge');
   const exitBtn  = document.getElementById('exit-admin-btn');
   const adminBtn = document.getElementById('admin-btn');
@@ -317,13 +321,7 @@ function _updateRoleBadge() {
   adminBtn?.classList.add('hidden');
 }
 
-function _showPinError(msg) {
-  const errEl = document.getElementById('pin-error');
-  if (errEl) errEl.textContent = msg;
-}
-
 function _showSSOError(msg) {
-  // index.html usa auth-error (no sso-error)
   const errEl = document.getElementById('auth-error');
   if (errEl) {
     errEl.textContent = msg;
