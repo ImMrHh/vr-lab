@@ -11,7 +11,7 @@ const MSAL_CONFIG = {
   auth: {
     clientId:    '656b2863-b415-478d-875a-bc96cd132f00',
     authority:   'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
-    redirectUri: 'https://portalvr.tech/auth/callback',
+    redirectUri: 'https://dev.vr-lab.pages.dev/auth/callback',
   },
   cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
 };
