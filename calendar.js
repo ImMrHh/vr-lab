@@ -215,9 +215,11 @@ export function getTopTeachers(bookings, n) {
 export function getBusiestDay(bookings) {
   const counts = [0, 0, 0, 0, 0];
   Object.keys(bookings).forEach(key => {
-    const dow = new Date(key.split('_')[0]).getDay();
+    const [y, m, d] = key.split('_')[0].split('-').map(Number);
+    const dow = new Date(y, m - 1, d).getDay(); // local time, no UTC ambiguity
     if (dow >= 1 && dow <= 5) counts[dow - 1]++;
   });
+ 
   const max = Math.max(...counts);
   const idx = counts.indexOf(max);
   return { day: FDAYS[idx], count: max };
