@@ -1,330 +1,292 @@
 // =============================================================================
 // auth.js — VR Lab CEAM · portalvr.tech
-// Autenticación: PIN flow (profesor / coordinación / admin) + SSO MSAL (Azure AD)
+// Autenticación: SSO MSAL (profesores) + PIN (coordinación/admin)
 // =============================================================================
 
-import { AUTH_URL } from './config.js';
+import { AUTH_URL, ROLE_LABELS, ROLE_COLORS } from './config.js';
+
+// ─── MSAL config ─────────────────────────────────────────────────────────────
+
+const MSAL_CONFIG = {
+  auth: {
+    clientId:    '656b2863-b415-478d-875a-bc96cd132f00',
+    authority:   'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
+    redirectUri: window.location.origin + '/',
+  },
+  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
+};
+
+const MSAL_SCOPES = ['User.Read'];
+
+let _msalInstance = null;
+
+async function getMSAL() {
+  if (_msalInstance) return _msalInstance;
+  // Carga MSAL desde CDN si no está disponible
+  if (!window.msal) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('MSAL_LOAD_FAILED'));
+      document.head.appendChild(s);
+    });
+  }
+  _msalInstance = new window.msal.PublicClientApplication(MSAL_CONFIG);
+  await _msalInstance.initialize();
+  await _msalInstance.handleRedirectPromise().catch(() => {});
+  return _msalInstance;
+}
 
 // ─── Estado interno ───────────────────────────────────────────────────────────
 
-let _authToken  = null;   // token de sesión (KV Worker)
-let _role       = null;   // 'profesor' | 'coordinacion' | 'admin'
-let _msalUser   = null;   // { name, email } si autenticado vía SSO
-let _pinBuffer  = '';     // dígitos acumulados del keypad
+let authToken = null;
+let role = null;
+let msalUser = null;   // { name, email }
+let _pinHandler = null;
 
-// ─── Getters públicos ─────────────────────────────────────────────────────────
+export function getAuthToken()  { return authToken; }
+export function getRole()       { return role; }
+export function getMSALUser()   { return msalUser; }
 
-export const getAuthToken = () => _authToken;
-export const getRole      = () => _role;
-export const getMSALUser  = () => _msalUser;
-
-// ─── MSAL config ──────────────────────────────────────────────────────────────
-
-const MSAL_CLIENT_ID = '656b2863-b415-478d-875a-bc96cd132f00';
-const MSAL_TENANT_ID = '8cef89d5-ca02-46a1-8397-b9c461acb2e6';
-const MSAL_SCOPES    = ['User.Read'];
-
-function getMSALConfig() {
-  return {
-    auth: {
-      clientId:    MSAL_CLIENT_ID,
-      authority:   `https://login.microsoftonline.com/${MSAL_TENANT_ID}`,
-      redirectUri: window.location.origin + '/',
-    },
-    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
-  };
-}
-
-// ─── MSAL login (popup flow) ──────────────────────────────────────────────────
+// ─── SSO Login ───────────────────────────────────────────────────────────────
 
 export async function msalLogin(onSuccess) {
-  _showSSOError('');
-
-  if (typeof msal === 'undefined') {
-    _showSSOError('SSO no disponible. Usa PIN para continuar.');
-    return;
-  }
-
   try {
-    const msalApp = new msal.PublicClientApplication(getMSALConfig());
-    await msalApp.initialize();
-    await msalApp.handleRedirectPromise();
+    const msalApp = await getMSAL();
 
-    const result = await msalApp.loginPopup({ scopes: MSAL_SCOPES });
+    // Intentar silent primero (cuenta ya en cache)
+    let account = msalApp.getAllAccounts()[0] || null;
+    let tokenResponse;
 
-    if (!result?.account) {
-      _showSSOError('No se pudo obtener la cuenta. Intenta de nuevo.');
-      return;
-    }
-
-    const account     = result.account;
-    const email       = account.username || account.idTokenClaims?.email || '';
-    const name        = account.name || account.idTokenClaims?.name || email.split('@')[0];
-    const accessToken = result.accessToken;
-
-    if (!email.endsWith('@cuam.edu.mx') && !email.endsWith('@ceam.edu.mx')) {
-      _showSSOError('Usa tu cuenta institucional (@cuam.edu.mx o @ceam.edu.mx).');
-      return;
-    }
-
-    const token = await _exchangeForSessionToken(email, name, accessToken);
-    if (!token) {
-      _showSSOError('Error al iniciar sesión. Intenta de nuevo.');
-      return;
-    }
-
-    _msalUser  = { name, email };
-    _authToken = token;
-    _role      = 'profesor';
-
-    _persistSession();
-    _updateRoleBadge();
-    if (onSuccess) await onSuccess();
-
-  } catch (err) {
-    console.error('MSAL error:', err);
-    if (err.errorCode === 'user_cancelled') {
-      _showSSOError('Inicio de sesión cancelado.');
+    if (account) {
+      try {
+        tokenResponse = await msalApp.acquireTokenSilent({ scopes: MSAL_SCOPES, account });
+      } catch {
+        tokenResponse = await msalApp.loginPopup({ scopes: MSAL_SCOPES });
+      }
     } else {
-      _showSSOError('Error de autenticación. Usa PIN para continuar.');
+      tokenResponse = await msalApp.loginPopup({ scopes: MSAL_SCOPES });
+    }
+
+    const name  = tokenResponse.account?.name  || tokenResponse.account?.username || 'Profesor';
+    const email = tokenResponse.account?.username || '';
+
+    msalUser  = { name, email };
+    authToken = tokenResponse.accessToken;
+    role      = 'profesor';
+
+    sessionStorage.setItem('vr-msal-name',  name);
+    sessionStorage.setItem('vr-msal-email', email);
+    sessionStorage.setItem('vr-booking-role', 'profesor');
+
+    enterRole('profesor', onSuccess);
+  } catch (e) {
+    if (e.errorCode === 'user_cancelled') return;
+    showAuthError('SSO no disponible aquí. Usa el PIN de acceso.');
+  }
+}
+
+// ─── Restore session ─────────────────────────────────────────────────────────
+
+export async function restoreSession(onSuccess) {
+  const savedRole = sessionStorage.getItem('vr-booking-role');
+
+  // Restore MSAL session
+  if (savedRole === 'profesor') {
+    const name  = sessionStorage.getItem('vr-msal-name');
+    const email = sessionStorage.getItem('vr-msal-email');
+    if (name) {
+      msalUser  = { name, email };
+      role      = 'profesor';
+      // Intentar token silent para verificar que la sesión sigue válida
+      try {
+        const msalApp = await getMSAL();
+        const account = msalApp.getAllAccounts()[0];
+        if (account) {
+          const t = await msalApp.acquireTokenSilent({ scopes: MSAL_SCOPES, account });
+          authToken = t.accessToken;
+        }
+      } catch { /* sesión expirada, pero dejamos entrar en modo lectura */ }
+      enterRole('profesor', onSuccess);
+      return true;
     }
   }
-}
 
-// ─── Intercambio MSAL accessToken → sesión Worker ────────────────────────────
-
-async function _exchangeForSessionToken(email, name, accessToken) {
-  try {
-    const r = await fetch(`${AUTH_URL}/sso`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ email, name, accessToken }),
-    });
-    const data = await r.json();
-    return data.token || null;
-  } catch {
-    return null;
-  }
-}
-
-// ─── PIN flow — usa el keypad numérico del index.html ─────────────────────────
-
-export function showPin(onSuccess) {
-  const screen    = document.getElementById('pin-screen');
-  const errEl     = document.getElementById('pin-error');
-  const cancelBtn = document.getElementById('btn-cancel-pin');
-
-  if (!screen) { console.error('pin-screen no encontrado'); return; }
-
-  // Reset estado
-  _pinBuffer = '';
-  _updateDots();
-  if (errEl) errEl.textContent = '';
-
-  // Mostrar pantalla PIN, ocultar auth-screen
-  document.getElementById('auth-screen')?.classList.add('hidden');
-  screen.classList.remove('hidden');
-
-  // ── Función de cierre ──────────────────────────────────────────────────────
-  const closePin = () => {
-    document.removeEventListener('keydown', keyHandler);
-    screen.classList.add('hidden');
-    document.getElementById('auth-screen')?.classList.remove('hidden');
-    _pinBuffer = '';
-    _updateDots();
-    if (errEl) errEl.textContent = '';
-  };
-
-  // ── Submit PIN ─────────────────────────────────────────────────────────────
-  const doSubmit = async () => {
-    document.removeEventListener('keydown', keyHandler);
-    const keys = document.querySelectorAll('.pin-key');
-    keys.forEach(k => k.disabled = true);
-    if (errEl) errEl.textContent = '';
-
+  // Restore PIN session (coordinacion/admin)
+  authToken = sessionStorage.getItem('vr-booking-token');
+  if (authToken) {
     try {
-      const r = await fetch(`${AUTH_URL}/auth`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ pin: _pinBuffer }),
+      const r = await fetch(`${AUTH_URL}/auth/check`, {
+        headers: { Authorization: `Bearer ${authToken}` },
       });
-      const data = await r.json();
-
-      if (data.token) {
-        _authToken = data.token;
-        _role      = data.role;
-        _msalUser  = null;
-
-        _persistSession();
-        _updateRoleBadge();
-        screen.classList.add('hidden');
-        if (onSuccess) await onSuccess();
-      } else {
-        if (errEl) errEl.textContent = data.error || 'PIN incorrecto';
-        _pinBuffer = '';
-        _updateDots();
-        // Re-registrar listener para nuevo intento
-        document.addEventListener('keydown', keyHandler);
+      const d = await r.json();
+      if (d.valid && d.role) {
+        role = d.role;
+        sessionStorage.setItem('vr-booking-role', role);
+        enterRole(role, onSuccess);
+        return true;
       }
-    } catch {
-      if (errEl) errEl.textContent = 'Error de red. Intenta de nuevo.';
-      _pinBuffer = '';
-      _updateDots();
-      document.addEventListener('keydown', keyHandler);
-    } finally {
-      keys.forEach(k => k.disabled = false);
-    }
-  };
-
-  // ── Teclado físico ─────────────────────────────────────────────────────────
-  const keyHandler = async (e) => {
-    if (e.key === 'Escape') {
-      closePin();
-      return;
-    }
-    if (e.key === 'Backspace') {
-      _pinBuffer = _pinBuffer.slice(0, -1);
-      _updateDots();
-      return;
-    }
-    if (e.key >= '0' && e.key <= '9') {
-      if (_pinBuffer.length >= 4) return;
-      _pinBuffer += e.key;
-      _updateDots();
-      if (_pinBuffer.length === 4) await doSubmit();
-    }
-  };
-  document.addEventListener('keydown', keyHandler);
-
-  // ── Keypad táctil — clonar para limpiar listeners previos ─────────────────
-  const oldKeys = document.querySelectorAll('.pin-key');
-  oldKeys.forEach(key => {
-    const fresh = key.cloneNode(true);
-    key.parentNode.replaceChild(fresh, key);
-  });
-
-  document.querySelectorAll('.pin-key').forEach(key => {
-    key.addEventListener('click', async () => {
-      const val = key.dataset.pin;
-      if (!val) return;
-
-      if (val === 'del') {
-        _pinBuffer = _pinBuffer.slice(0, -1);
-        _updateDots();
-        return;
-      }
-      if (_pinBuffer.length >= 4) return;
-      _pinBuffer += val;
-      _updateDots();
-
-      if (_pinBuffer.length === 4) await doSubmit();
-    });
-  });
-
-  // ── Cancelar ───────────────────────────────────────────────────────────────
-  const freshCancel = cancelBtn?.cloneNode(true);
-  if (freshCancel && cancelBtn) {
-    cancelBtn.parentNode.replaceChild(freshCancel, cancelBtn);
-    freshCancel.addEventListener('click', closePin);
+    } catch {}
+    sessionStorage.removeItem('vr-booking-token');
+    sessionStorage.removeItem('vr-booking-role');
+    authToken = null;
+    role = null;
   }
+
+  return false;
 }
 
-// ─── Dots del keypad ──────────────────────────────────────────────────────────
+// ─── Entrar a un rol ──────────────────────────────────────────────────────────
 
-function _updateDots() {
-  for (let i = 0; i < 4; i++) {
-    document.getElementById(`d${i}`)?.classList.toggle('filled', i < _pinBuffer.length);
+export function enterRole(r, onSuccess) {
+  role = r;
+  if (r !== 'profesor') {
+    authToken = sessionStorage.getItem('vr-booking-token');
   }
+  hidePinScreen();
+
+  const badge = document.getElementById('admin-badge');
+  badge.textContent = ROLE_LABELS[r] || r;
+  badge.style.background = ROLE_COLORS[r] || '#1e40af';
+  badge.classList.remove('hidden');
+
+  document.getElementById('exit-admin-btn').classList.remove('hidden');
+  document.getElementById('admin-btn').classList.add('hidden');
+  document.getElementById('view-tabs').classList.remove('hidden');
+
+  // Mostrar nombre de usuario MSAL si aplica
+  if (r === 'profesor' && msalUser) {
+    badge.textContent = msalUser.name;
+  }
+
+  onSuccess && onSuccess();
 }
 
-// ─── Salir de rol ─────────────────────────────────────────────────────────────
+// ─── Cerrar sesión ────────────────────────────────────────────────────────────
 
 export function exitRole() {
-  _authToken = null;
-  _role      = null;
-  _msalUser  = null;
-  _pinBuffer = '';
-  sessionStorage.removeItem('vr_session');
-  _updateRoleBadge();
+  // Logout MSAL si aplica
+  if (role === 'profesor' && msalUser) {
+    getMSAL().then(app => {
+      const account = app.getAllAccounts()[0];
+      if (account) app.logoutPopup({ account }).catch(() => {});
+    }).catch(() => {});
+    sessionStorage.removeItem('vr-msal-name');
+    sessionStorage.removeItem('vr-msal-email');
+    msalUser = null;
+  } else {
+    // Logout PIN
+    fetch(`${AUTH_URL}/logout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}` },
+    }).catch(() => {});
+    sessionStorage.removeItem('vr-booking-token');
+  }
 
-  document.getElementById('main-app')?.classList.add('hidden');
-  document.getElementById('auth-screen')?.classList.remove('hidden');
+  sessionStorage.removeItem('vr-booking-role');
+  authToken = null;
+  role = null;
+
+  document.getElementById('admin-badge').classList.add('hidden');
+  document.getElementById('exit-admin-btn').classList.add('hidden');
+  document.getElementById('admin-btn').classList.remove('hidden');
+  document.getElementById('view-tabs').classList.add('hidden');
 }
 
-// ─── Restaurar sesión al cargar ───────────────────────────────────────────────
+// ─── PIN (coordinación / admin) ───────────────────────────────────────────────
 
-export async function restoreSession(onRestored) {
-  try {
-    const saved = sessionStorage.getItem('vr_session');
-    if (!saved) return;
+export function showPin(onSuccess) {
+  let pinVal = '';
+  document.getElementById('pin-error').textContent = '';
+  updateDots(pinVal);
+  document.getElementById('pin-screen').classList.remove('hidden');
+  document.getElementById('main-app').classList.add('hidden');
+  document.getElementById('auth-screen')?.classList.add('hidden');
 
-    const { token, role, msalUser } = JSON.parse(saved);
-    if (!token || !role) return;
+  if (_pinHandler) document.removeEventListener('keydown', _pinHandler);
+  _pinHandler = function (e) {
+    if (document.getElementById('pin-screen').classList.contains('hidden')) return;
+    if (e.key >= '0' && e.key <= '9') pinPress(e.key);
+    else if (e.key === 'Backspace') pinPress('del');
+    else if (e.key === 'Escape') hidePinScreen();
+  };
+  document.addEventListener('keydown', _pinHandler);
 
-    const r = await fetch(`${AUTH_URL}/auth/check`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    const data = await r.json();
-    if (!data.valid) { sessionStorage.removeItem('vr_session'); return; }
+  document.querySelectorAll('.pin-key[data-pin]').forEach(btn => {
+    btn.onclick = () => pinPress(btn.dataset.pin);
+  });
+  document.getElementById('btn-cancel-pin')?.addEventListener('click', hidePinScreen);
 
-    _authToken = token;
-    _role      = role;
-    _msalUser  = msalUser || null;
+  function pinPress(v) {
+    if (v === 'del') {
+      pinVal = pinVal.slice(0, -1);
+      document.getElementById('pin-error').textContent = '';
+      updateDots(pinVal);
+      return;
+    }
+    if (pinVal.length >= 4) return;
+    pinVal += v;
+    updateDots(pinVal);
+    if (pinVal.length === 4) submitPin();
+  }
 
-    _updateRoleBadge();
-
-    document.getElementById('auth-screen')?.classList.add('hidden');
-    document.getElementById('pin-screen')?.classList.add('hidden');
-    document.getElementById('main-app')?.classList.remove('hidden');
-
-    if (onRestored) await onRestored();
-
-  } catch {
-    sessionStorage.removeItem('vr_session');
+  async function submitPin() {
+    document.querySelectorAll('.pin-key').forEach(k => k.disabled = true);
+    document.getElementById('pin-error').textContent = 'Verificando…';
+    try {
+      const r = await fetch(`${AUTH_URL}/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: pinVal }),
+      });
+      const data = await r.json();
+      if (data.token) {
+        authToken = data.token;
+        role = data.role;
+        sessionStorage.setItem('vr-booking-token', authToken);
+        sessionStorage.setItem('vr-booking-role', role);
+        enterRole(role, onSuccess);
+      } else {
+        const dots = document.getElementById('pin-dots');
+        dots.classList.add('shake');
+        for (let i = 0; i < 4; i++) document.getElementById('d' + i).className = 'pin-dot error';
+        document.getElementById('pin-error').textContent = data.error || 'PIN incorrecto';
+        setTimeout(() => { dots.classList.remove('shake'); pinVal = ''; updateDots(pinVal); }, 500);
+      }
+    } catch {
+      document.getElementById('pin-error').textContent = 'Error de conexión';
+      setTimeout(() => { pinVal = ''; updateDots(pinVal); }, 500);
+    } finally {
+      document.querySelectorAll('.pin-key').forEach(k => k.disabled = false);
+    }
   }
 }
 
-// ─── Helpers internos ─────────────────────────────────────────────────────────
-
-function _persistSession() {
-  sessionStorage.setItem('vr_session', JSON.stringify({
-    token:    _authToken,
-    role:     _role,
-    msalUser: _msalUser,
-  }));
+export function hidePinScreen() {
+  document.getElementById('pin-screen').classList.add('hidden');
+  const hasSession = sessionStorage.getItem('vr-booking-role');
+  if (hasSession) {
+    document.getElementById('main-app').classList.remove('hidden');
+  } else {
+    document.getElementById('auth-screen')?.classList.remove('hidden');
+  }
+  if (_pinHandler) {
+    document.removeEventListener('keydown', _pinHandler);
+    _pinHandler = null;
+  }
 }
 
-function _updateRoleBadge() {
-  const badge    = document.getElementById('admin-badge');
-  const exitBtn  = document.getElementById('exit-admin-btn');
-  const adminBtn = document.getElementById('admin-btn');
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  if (!_role) {
-    badge?.classList.add('hidden');
-    exitBtn?.classList.add('hidden');
-    adminBtn?.classList.remove('hidden');
-    return;
+function updateDots(pinVal) {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('d' + i).className = 'pin-dot' + (i < pinVal.length ? ' filled' : '');
   }
-
-  const labels = { profesor: 'Modo Profesor', coordinacion: 'Coordinación', admin: 'Admin' };
-  const colors = { profesor: '#065f46', coordinacion: '#7c3aed', admin: '#1e40af' };
-
-  if (badge) {
-    badge.textContent = _msalUser
-      ? `${_msalUser.name.split(' ')[0]} · ${labels[_role]}`
-      : labels[_role];
-    badge.style.background = colors[_role] || '#374151';
-    badge.classList.remove('hidden');
-  }
-
-  exitBtn?.classList.remove('hidden');
-  adminBtn?.classList.add('hidden');
 }
 
-function _showSSOError(msg) {
-  const errEl = document.getElementById('auth-error');
-  if (errEl) {
-    errEl.textContent = msg;
-    errEl.classList.toggle('hidden', !msg);
-  }
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  if (el) { el.textContent = msg; el.classList.remove('hidden'); }
+  else console.error(msg);
 }
