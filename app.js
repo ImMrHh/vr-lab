@@ -90,7 +90,8 @@ function doBlock(key, wOff, dIdx, pLabel, pTime) {
     (k) => api.checkConflict(k, getToken()),
     ui.showToast,
     async () => { await refreshBookings(); },
-    renderGrid
+    renderGrid,
+    (k, w, d, pl, pt) => api.blockOnServer(k, w, d, pl, pt, getToken(), getCellDate, dStr, FDAYS)
   );
 }
 
