@@ -16,16 +16,18 @@ export function openModal({
   window.pendingModal = { wOff, dIdx, pLabel, pTime, key };
   document.getElementById('modal-title').textContent = `Reservar ${pLabel}`;
   document.getElementById('modal-sub').textContent   = `${FDAYS[dIdx]}, ${fmtDate(wOff, dIdx)} · ${pTime}`;
+  // Reset campos ANTES de populateTeachers para evitar que onTeacherChange
+  // deje f-materia en estado incorrecto solapando el dropdown de profesor
   document.getElementById('f-actividad').value    = '';
   document.getElementById('f-aprendizaje').value  = '';
   document.getElementById('f-observaciones').value = '';
-  hideAdminExtras && hideAdminExtras();
-  populateTeachers && populateTeachers();
+  document.getElementById('f-materia').innerHTML  = '<option value="">Seleccionar materia…</option>';
+  document.getElementById('f-materia').disabled   = true;
+  document.getElementById('f-grupo').disabled     = true;
   document.getElementById('f-grupo-row').classList.remove('hidden');
-  document.getElementById('f-materia').innerHTML = '<option value="">Seleccionar materia…</option>';
-  document.getElementById('f-profesor').value    = '';
-  document.getElementById('f-materia').disabled  = true;
-  document.getElementById('f-grupo').disabled    = true;
+  hideAdminExtras && hideAdminExtras();
+  // populateTeachers después del reset
+  populateTeachers && populateTeachers();
   document.getElementById('modal').classList.remove('hidden');
   setTimeout(() => document.getElementById('f-profesor').focus(), 50);
 }
