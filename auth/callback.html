@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><title>Auth</title></head>
+<body>
+<script>
+  if (window.opener) {
+    window.opener.dispatchEvent(new Event('msalAuthComplete'));
+  }
+  window.close();
+</script>
+</body>
+</html>
