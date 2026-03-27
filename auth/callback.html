@@ -2,11 +2,25 @@
 <html>
 <head><title>Auth</title></head>
 <body>
+<script src="/msal-browser.min.js"></script>
 <script>
-  if (window.opener) {
-    window.opener.dispatchEvent(new Event('msalAuthComplete'));
-  }
-  window.close();
+  const msalApp = new msal.PublicClientApplication({
+    auth: {
+      clientId:    '656b2863-b415-478d-875a-bc96cd132f00',
+      authority:   'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
+      redirectUri: window.location.href.split('?')[0].split('#')[0],
+    },
+    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
+  });
+
+  msalApp.initialize().then(() => {
+    return msalApp.handleRedirectPromise();
+  }).then(() => {
+    window.close();
+  }).catch(err => {
+    console.error('Callback error:', err);
+    window.close();
+  });
 </script>
 </body>
 </html>
