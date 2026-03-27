@@ -11,7 +11,7 @@ const MSAL_CONFIG = {
   auth: {
     clientId:    '656b2863-b415-478d-875a-bc96cd132f00',
     authority:   'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
-    redirectUri: 'https://portalvr.tech/auth/callback',
+    redirectUri: window.location.origin + '/',
   },
   cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
 };
@@ -22,10 +22,10 @@ let _msalInstance = null;
 
 async function getMSAL() {
   if (_msalInstance) return _msalInstance;
+  // Carga MSAL desde CDN si no está disponible
   if (!window.msal) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      // jsDelivr — más permisivo que alcdn.msauth.net
       s.src = 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js';
       s.onload = resolve;
       s.onerror = () => reject(new Error('MSAL_LOAD_FAILED'));
@@ -34,7 +34,6 @@ async function getMSAL() {
   }
   _msalInstance = new window.msal.PublicClientApplication(MSAL_CONFIG);
   await _msalInstance.initialize();
-  // Limpiar redirect pendiente sin lanzar error
   await _msalInstance.handleRedirectPromise().catch(() => {});
   return _msalInstance;
 }
@@ -84,9 +83,7 @@ export async function msalLogin(onSuccess) {
     enterRole('profesor', onSuccess);
   } catch (e) {
     if (e.errorCode === 'user_cancelled') return;
-    // Falla silenciosa en dev/orígenes no registrados en Azure
-    // El PIN sigue funcionando independientemente
-    showAuthError('SSO no disponible en este entorno. Usa el PIN de acceso.');
+    showAuthError('SSO no disponible aquí. Usa el PIN de acceso.');
   }
 }
 

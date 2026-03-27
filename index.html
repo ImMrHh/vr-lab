@@ -195,6 +195,13 @@
 
 <div class="toast" id="toast"></div>
 
+<script>
+  // Si MSAL nos redirigió de vuelta con un código, procesarlo antes de cargar el app
+  if (window.location.hash.includes('code=') || window.location.search.includes('code=')) {
+    // Limpiar la URL fea sin recargar
+    history.replaceState(null, '', window.location.pathname);
+  }
+</script>
 <script type="module" src="app.js"></script>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}</script>
 </body>
