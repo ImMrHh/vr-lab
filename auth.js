@@ -26,7 +26,7 @@ async function getMSAL() {
   if (!window.msal) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = 'https://alcdn.msauth.net/browser/5.4.0/js/msal-browser.min.js';
+      s.src = 'https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js';
       s.onload = resolve;
       s.onerror = reject;
       document.head.appendChild(s);
