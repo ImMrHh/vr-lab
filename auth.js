@@ -26,9 +26,9 @@ async function getMSAL() {
   if (!window.msal) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = 'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js';
+      s.src = 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js';
       s.onload = resolve;
-      s.onerror = reject;
+      s.onerror = () => reject(new Error('No se pudo cargar MSAL'));
       document.head.appendChild(s);
     });
   }
@@ -81,9 +81,8 @@ export async function msalLogin(onSuccess) {
 
     enterRole('profesor', onSuccess);
   } catch (e) {
-    if (e.errorCode !== 'user_cancelled') {
-      showAuthError('Error al iniciar sesión: ' + (e.message || e));
-    }
+    if (e.errorCode === 'user_cancelled') return;
+    showAuthError('Error SSO: ' + (e.message || e) + '. Usa el PIN de acceso.');
   }
 }
 
