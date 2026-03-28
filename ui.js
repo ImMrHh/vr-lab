@@ -208,17 +208,17 @@ export function renderStats({
   getWeekBookings, getMonthBookings, getUsageRate, getTopTeachers, getBusiestDay,
   bookings, mBlocked, ROWS, FDAYS,
 }) {
-  const thisWeek = getWeekBookings(bookings, 0).length;
-  const lastWeek = getWeekBookings(bookings, -1).length;
+  const thisWeek = getWeekBookings(0).length;
+  const lastWeek = getWeekBookings(-1).length;
   const delta = thisWeek - lastWeek;
   const deltaHtml = delta === 0 ? '' :
     `<span class="stat-delta ${delta > 0 ? 'positive' : 'negative'}">${delta > 0 ? '+' : ''}${delta}</span>`;
 
-  const thisMonth = getMonthBookings(bookings).length;
-  const usage = getUsageRate(bookings, mBlocked);
+  const thisMonth = getMonthBookings().length;
+  const usage = getUsageRate();
   const blocked = Object.keys(mBlocked).length;
-  const topTeachers = getTopTeachers(bookings, 5);
-  const busiest = getBusiestDay(bookings);
+  const topTeachers = getTopTeachers(5);
+  const busiest = getBusiestDay();
 
   const topHtml = topTeachers.length
     ? topTeachers.map(([name, count], i) => `
