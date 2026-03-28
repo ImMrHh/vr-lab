@@ -12,9 +12,6 @@ import {
   getWeekBookings, getMonthBookings, getUsageRate, getTopTeachers, getBusiestDay
 } from './calendar.js';
 
-// Pre-inicializar MSAL al cargar el módulo
-auth.initMSAL();
-
 let isAdmin = false;
 let weekOff = 0;
 let currentView = 'grid';
