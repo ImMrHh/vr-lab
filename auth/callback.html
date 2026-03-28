@@ -10,15 +10,33 @@
 (async function () {
   const msalApp = new msal.PublicClientApplication({
     auth: {
-      clientId:  '656b2863-b415-478d-875a-bc96cd132f00',
-      authority: 'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
+      clientId:    '656b2863-b415-478d-875a-bc96cd132f00',
+      authority:   'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
       redirectUri: window.location.origin + '/auth/callback.html',
     },
     cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
   });
+
   await msalApp.initialize();
-  await msalApp.handleRedirectPromise();
-  // MSAL cierra el popup internamente — no llamar window.close()
+
+  try {
+    await msalApp.handleRedirectPromise();
+  } catch (e) {
+    console.error('[callback] error:', e);
+  }
+
+  // Intentar cerrar — con retries porque Edge con SSO corporativo puede bloquearlo
+  let attempts = 0;
+  const tryClose = setInterval(() => {
+    attempts++;
+    window.close();
+    if (attempts >= 10) {
+      clearInterval(tryClose);
+      // Si después de 10 intentos no cerró, redirigir a la raíz
+      // para que el usuario no quede atrapado en el popup
+      window.location.replace(window.location.origin);
+    }
+  }, 200);
 })();
 </script>
 </body>
