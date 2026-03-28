@@ -12,6 +12,8 @@ import {
   getWeekBookings, getMonthBookings, getUsageRate, getTopTeachers, getBusiestDay
 } from './calendar.js';
 
+// Obtener identidad CF Access al cargar el módulo
+
 let isAdmin = false;
 let weekOff = 0;
 let currentView = 'grid';
@@ -90,7 +92,8 @@ function doBlock(key, wOff, dIdx, pLabel, pTime) {
     (k) => api.checkConflict(k, getToken()),
     ui.showToast,
     async () => { await refreshBookings(); },
-    renderGrid
+    renderGrid,
+    (k, w, d, pl, pt) => api.blockOnServer(k, w, d, pl, pt, getToken(), getCellDate, dStr, FDAYS)
   );
 }
 
@@ -151,9 +154,7 @@ function salirAdmin() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  document.getElementById('btn-msal-login')?.addEventListener('click', () => {
-    auth.msalLogin(async () => { await enterApp(); });
-  });
+  await auth.initCFIdentity(async () => { await enterApp(); });
 
   document.getElementById('btn-show-pin')?.addEventListener('click', (e) => {
     e.preventDefault();

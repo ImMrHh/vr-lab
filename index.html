@@ -34,10 +34,6 @@
     <div class="auth-icon">⬡</div>
     <h2>Laboratorio de R. Virtual</h2>
     <p>Inicia sesión con tu cuenta CEAM para consultar disponibilidad y reservar sesiones.</p>
-    <button class="btn btn-primary" id="btn-msal-login" style="width:100%;padding:12px;font-size:14px">
-      Entrar con cuenta CEAM
-    </button>
-    <div id="auth-error" class="hidden" style="margin-top:12px;font-size:13px;color:var(--red);text-align:center"></div>
     <p class="auth-note">
       ¿Coordinación o Admin?
       <a href="#" id="btn-show-pin" style="color:var(--green);text-decoration:none;font-weight:500">Acceso con PIN</a>
@@ -195,13 +191,6 @@
 
 <div class="toast" id="toast"></div>
 
-<script>
-  // Si MSAL nos redirigió de vuelta con un código, procesarlo antes de cargar el app
-  if (window.location.hash.includes('code=') || window.location.search.includes('code=')) {
-    // Limpiar la URL fea sin recargar
-    history.replaceState(null, '', window.location.pathname);
-  }
-</script>
 <script type="module" src="app.js"></script>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}</script>
 </body>
