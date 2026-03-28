@@ -71,13 +71,11 @@ export async function msalLogin(onSuccess) {
   }
 
   try {
-    console.log('[auth] iniciando loginPopup...');
-    const result = await _msalApp.loginPopup({
+      const result = await _msalApp.loginPopup({
       scopes:      MSAL_SCOPES,
       redirectUri: window.location.origin + '/auth/callback.html',
     });
-    console.log('[auth] loginPopup resolvió:', result);
-
+    
     if (!result?.account) {
       _showSSOError('No se pudo obtener la cuenta. Intenta de nuevo.');
       return;
