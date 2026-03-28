@@ -2,6 +2,5 @@
 https://www.portalvr.tech/* https://portalvr.tech/:splat 301
 # Redirigir la URL de Pages de Cloudflare
 https://vr-lab.pages.dev/* https://portalvr.tech/:splat 301
-# Excepción explícita para callback MSAL — DEBE ir antes del SPA fallback
-/auth/callback.html /auth/callback.html 200
+# SPA fallback — solo para rutas sin extensión
 /* /index.html 200
