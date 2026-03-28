@@ -53,7 +53,11 @@ function renderList() {
 
 function renderStats() {
   ui.renderStats({
-    getWeekBookings, getMonthBookings, getUsageRate, getTopTeachers, getBusiestDay,
+    getWeekBookings:  (off) => getWeekBookings(bookings, off),
+    getMonthBookings: ()    => getMonthBookings(bookings),
+    getUsageRate:     ()    => getUsageRate(bookings, mBlocked),
+    getTopTeachers:   (n)   => getTopTeachers(bookings, n),
+    getBusiestDay:    ()    => getBusiestDay(bookings),
     bookings, mBlocked, ROWS, FDAYS,
   });
 }
