@@ -1,26 +1,39 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head><title>Auth</title></head>
+<head><meta charset="utf-8"><title>Auth callback</title></head>
 <body>
 <script src="/msal-browser.min.js"></script>
 <script>
   const msalApp = new msal.PublicClientApplication({
     auth: {
-      clientId:    '656b2863-b415-478d-875a-bc96cd132f00',
-      authority:   'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
-      redirectUri: window.location.href.split('?')[0].split('#')[0],
+      clientId: '656b2863-b415-478d-875a-bc96cd132f00',
+      authority: 'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
+      redirectUri: window.location.origin + '/auth/callback.html'
     },
-    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
+    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
   });
 
-  msalApp.initialize().then(() => {
-    return msalApp.handleRedirectPromise();
-  }).then(() => {
-    window.close();
-  }).catch(err => {
-    console.error('Callback error:', err);
-    window.close();
-  });
+  msalApp.handleRedirectPromise()
+    .then((response) => {
+      const payload = { type: 'msal:auth:complete', response: response || null };
+      try {
+        if (window.opener && !window.opener.closed) {
+          // targetOrigin usa el origen de la ventana padre si lo conoces; usa '*' solo para pruebas
+          window.opener.postMessage(payload, window.location.origin);
+        }
+      } catch (e) {
+        // si postMessage falla por políticas, lo registramos
+        console.error('postMessage failed', e);
+      } finally {
+        // Intentamos cerrar la ventana; si está bloqueado, la página puede mostrar un mensaje
+        try { window.close(); } catch (e) { /* noop */ }
+      }
+    })
+    .catch(err => {
+      console.error('Callback error:', err);
+      try { window.opener.postMessage({ type: 'msal:auth:error', error: String(err) }, window.location.origin); } catch(e){}
+      try { window.close(); } catch(e){}
+    });
 </script>
 </body>
 </html>
