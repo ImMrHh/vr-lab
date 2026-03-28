@@ -14,7 +14,7 @@
       authority:   'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
       redirectUri: window.location.origin + '/auth/callback.html',
     },
-    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
+    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
   });
 
   await msalApp.initialize();
