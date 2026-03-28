@@ -130,6 +130,7 @@ async function enterApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('main-app').classList.remove('hidden');
   document.getElementById('admin-btn').classList.remove('hidden');
+  document.getElementById('view-tabs')?.classList.remove('hidden');
   renderWeekLabel();
   renderGrid();
   updateTodayBtn();
@@ -207,6 +208,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   exposeGlobals();
 
   await auth.restoreSession(async () => {
+    document.getElementById('view-tabs')?.classList.remove('hidden');
     await refreshBookings();
     renderGrid();
   });
