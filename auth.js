@@ -44,7 +44,6 @@ export async function initMSAL() {
     _msalApp = new msal.PublicClientApplication(getMSALConfig());
     await _msalApp.initialize();
 
-    // Listener para logging/diagnóstico del popup callback
     window.addEventListener('message', (event) => {
       if (event.origin !== window.location.origin) return;
       if (event.data?.type === 'msal:auth:complete') {
@@ -72,11 +71,12 @@ export async function msalLogin(onSuccess) {
   }
 
   try {
-    // redirectUri explícito en loginPopup() — requerido en MSAL v2 para popup flow
+    console.log('[auth] iniciando loginPopup...');
     const result = await _msalApp.loginPopup({
       scopes:      MSAL_SCOPES,
       redirectUri: window.location.origin + '/auth/callback.html',
     });
+    console.log('[auth] loginPopup resolvió:', result);
 
     if (!result?.account) {
       _showSSOError('No se pudo obtener la cuenta. Intenta de nuevo.');
@@ -108,7 +108,7 @@ export async function msalLogin(onSuccess) {
     if (onSuccess) await onSuccess();
 
   } catch (err) {
-    console.error('MSAL error:', err);
+    console.error('[auth] MSAL error:', err);
     if (err.errorCode === 'user_cancelled') {
       _showSSOError('Inicio de sesión cancelado.');
     } else {
@@ -142,16 +142,13 @@ export function showPin(onSuccess) {
 
   if (!screen) { console.error('pin-screen no encontrado'); return; }
 
-  // Reset estado
   _pinBuffer = '';
   _updateDots();
   if (errEl) errEl.textContent = '';
 
-  // Mostrar pantalla PIN, ocultar auth-screen
   document.getElementById('auth-screen')?.classList.add('hidden');
   screen.classList.remove('hidden');
 
-  // ── Función de cierre ──────────────────────────────────────────────────────
   const closePin = () => {
     document.removeEventListener('keydown', keyHandler);
     screen.classList.add('hidden');
@@ -161,7 +158,6 @@ export function showPin(onSuccess) {
     if (errEl) errEl.textContent = '';
   };
 
-  // ── Submit PIN ─────────────────────────────────────────────────────────────
   const doSubmit = async () => {
     document.removeEventListener('keydown', keyHandler);
     const keys = document.querySelectorAll('.pin-key');
@@ -201,7 +197,6 @@ export function showPin(onSuccess) {
     }
   };
 
-  // ── Teclado físico ─────────────────────────────────────────────────────────
   const keyHandler = async (e) => {
     if (e.key === 'Escape') { closePin(); return; }
     if (e.key === 'Backspace') {
@@ -218,7 +213,6 @@ export function showPin(onSuccess) {
   };
   document.addEventListener('keydown', keyHandler);
 
-  // ── Keypad táctil — clonar para limpiar listeners previos ─────────────────
   document.querySelectorAll('.pin-key').forEach(key => {
     const fresh = key.cloneNode(true);
     key.parentNode.replaceChild(fresh, key);
@@ -240,7 +234,6 @@ export function showPin(onSuccess) {
     });
   });
 
-  // ── Cancelar ───────────────────────────────────────────────────────────────
   const freshCancel = cancelBtn?.cloneNode(true);
   if (freshCancel && cancelBtn) {
     cancelBtn.parentNode.replaceChild(freshCancel, cancelBtn);
