@@ -99,7 +99,8 @@ export function closeConfirmDialog() {
  */
 export function doBlock(
   key, wOff, dIdx, pLabel, pTime,
-  FDAYS, fmtDate, showConfirmDialog, checkConflict, showToast, loadBookings, renderGrid
+  FDAYS, fmtDate, showConfirmDialog, checkConflict, showToast, loadBookings, renderGrid,
+  blockOnServer
 ) {
   showConfirmDialog({
     title: `¿Bloquear slot?`,
@@ -115,7 +116,9 @@ export function doBlock(
           renderGrid();
           return;
         }
-        // Aquí debes llamar a blockOnServer (api.js) y actualizar mBlocked/bookings en memoria afuera de este módulo.
+        await blockOnServer(key, wOff, dIdx, pLabel, pTime);
+        await loadBookings();
+        renderGrid();
         showToast('Slot bloqueado');
       } catch (e) {
         showToast('Error: ' + (e?.message || e), 'err');

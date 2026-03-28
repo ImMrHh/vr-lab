@@ -1,9 +1,6 @@
 # Redirigir WWW
 https://www.portalvr.tech/* https://portalvr.tech/:splat 301
-
 # Redirigir la URL de Pages de Cloudflare
 https://vr-lab.pages.dev/* https://portalvr.tech/:splat 301
-
-# SPA fallback — necesario para MSAL auth/callback y navegación directa
-/auth/callback /index.html 200
-/* /index.html 200
+# SPA fallback — solo para rutas sin extensión
+/* /index.html 404
