@@ -2,62 +2,23 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Auth callback</title>
 </head>
 <body>
 <script src="/msal-browser.min.js"></script>
 <script>
 (async function () {
-  const CLIENT_ID    = '656b2863-b415-478d-875a-bc96cd132f00';
-  const TENANT_AUTH  = 'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6';
-  const REDIRECT_URI = window.location.origin + '/auth/callback.html';
-
-  console.log('[callback] inicio. opener exists?', !!window.opener);
-
   const msalApp = new msal.PublicClientApplication({
     auth: {
-      clientId:    CLIENT_ID,
-      authority:   TENANT_AUTH,
-      redirectUri: REDIRECT_URI,
+      clientId:  '656b2863-b415-478d-875a-bc96cd132f00',
+      authority: 'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
+      redirectUri: window.location.origin + '/auth/callback.html',
     },
-    cache: {
-      cacheLocation:        'localStorage',
-      storeAuthStateInCookie: true,
-    },
+    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
   });
-
-  // ← CRÍTICO: initialize() antes de handleRedirectPromise()
   await msalApp.initialize();
-
-  function safePostMessage(payload) {
-    try {
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage(payload, window.location.origin);
-        console.log('[callback] postMessage enviado:', payload.type);
-        return true;
-      }
-      console.warn('[callback] opener no disponible (COOP?)');
-    } catch (err) {
-      console.warn('[callback] postMessage falló:', err);
-    }
-    return false;
-  }
-
-  function finishAndClose() {
-    try { window.close(); } catch (e) { /* bloqueado por browser */ }
-  }
-
-  try {
-    const response = await msalApp.handleRedirectPromise();
-    console.log('[callback] handleRedirectPromise:', response);
-    safePostMessage({ type: 'msal:auth:complete', response: response || null });
-  } catch (err) {
-    console.error('[callback] error:', err);
-    safePostMessage({ type: 'msal:auth:error', error: String(err) });
-  } finally {
-    finishAndClose();
-  }
+  await msalApp.handleRedirectPromise();
+  // MSAL cierra el popup internamente — no llamar window.close()
 })();
 </script>
 </body>
