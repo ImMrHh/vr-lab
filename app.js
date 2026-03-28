@@ -56,7 +56,11 @@ function renderList() {
 
 function renderStats() {
   ui.renderStats({
-    getWeekBookings, getMonthBookings, getUsageRate, getTopTeachers, getBusiestDay,
+    getWeekBookings:  (off) => getWeekBookings(bookings, off),
+    getMonthBookings: ()    => getMonthBookings(bookings),
+    getUsageRate:     ()    => getUsageRate(bookings, mBlocked),
+    getTopTeachers:   (n)   => getTopTeachers(bookings, n),
+    getBusiestDay:    ()    => getBusiestDay(bookings),
     bookings, mBlocked, ROWS, FDAYS,
   });
 }
@@ -133,6 +137,7 @@ async function enterApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('main-app').classList.remove('hidden');
   document.getElementById('admin-btn').classList.remove('hidden');
+  document.getElementById('view-tabs')?.classList.remove('hidden');
   renderWeekLabel();
   renderGrid();
   updateTodayBtn();
@@ -155,10 +160,6 @@ function salirAdmin() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  document.getElementById('btn-msal-login')?.addEventListener('click', () => {
-    auth.msalLogin(async () => { await enterApp(); });
-  });
-
   document.getElementById('btn-show-pin')?.addEventListener('click', (e) => {
     e.preventDefault();
     auth.showPin(async () => { await enterApp(); });
@@ -214,6 +215,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   exposeGlobals();
 
   await auth.restoreSession(async () => {
+    document.getElementById('view-tabs')?.classList.remove('hidden');
     await refreshBookings();
     renderGrid();
   });

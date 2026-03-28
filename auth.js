@@ -1,6 +1,6 @@
 // =============================================================================
 // auth.js — VR Lab CEAM · portalvr.tech
-// Autenticación: PIN flow (profesor / coordinación / admin) + SSO MSAL (Azure AD)
+// Autenticación: PIN flow (profesor / coordinación / admin)
 // =============================================================================
 
 import { AUTH_URL } from './config.js';
@@ -9,129 +9,15 @@ import { AUTH_URL } from './config.js';
 
 let _authToken = null;   // token de sesión (KV Worker)
 let _role      = null;   // 'profesor' | 'coordinacion' | 'admin'
-let _msalUser  = null;   // { name, email } si autenticado vía SSO
 let _pinBuffer = '';     // dígitos acumulados del keypad
-let _msalApp   = null;   // instancia MSAL pre-inicializada
 
 // ─── Getters públicos ─────────────────────────────────────────────────────────
 
 export const getAuthToken = () => _authToken;
 export const getRole      = () => _role;
-export const getMSALUser  = () => _msalUser;
+export const getMSALUser  = () => null;  // alias para compatibilidad
 
-// ─── MSAL config ──────────────────────────────────────────────────────────────
-
-const MSAL_CLIENT_ID = '656b2863-b415-478d-875a-bc96cd132f00';
-const MSAL_TENANT_ID = '8cef89d5-ca02-46a1-8397-b9c461acb2e6';
-const MSAL_SCOPES    = ['User.Read'];
-
-function getMSALConfig() {
-  return {
-    auth: {
-      clientId:    MSAL_CLIENT_ID,
-      authority:   `https://login.microsoftonline.com/${MSAL_TENANT_ID}`,
-      redirectUri: window.location.origin + '/auth/callback.html',
-    },
-    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
-  };
-}
-
-// ─── Pre-inicializar MSAL al cargar el módulo ─────────────────────────────────
-
-export async function initMSAL() {
-  if (typeof msal === 'undefined') return;
-  try {
-    _msalApp = new msal.PublicClientApplication(getMSALConfig());
-    await _msalApp.initialize();
-
-    window.addEventListener('message', (event) => {
-      if (event.origin !== window.location.origin) return;
-      if (event.data?.type === 'msal:auth:complete') {
-        console.log('[auth] mensaje recibido del callback:', event.data.response);
-      }
-      if (event.data?.type === 'msal:auth:error') {
-        console.warn('[auth] error del callback:', event.data.error);
-      }
-    });
-
-  } catch (err) {
-    console.warn('MSAL init error:', err);
-    _msalApp = null;
-  }
-}
-
-// ─── MSAL login (popup flow) ──────────────────────────────────────────────────
-
-export async function msalLogin(onSuccess) {
-  _showSSOError('');
-
-  if (!_msalApp) {
-    _showSSOError('SSO no disponible. Usa PIN para continuar.');
-    return;
-  }
-
-  try {
-      const result = await _msalApp.loginPopup({
-      scopes:      MSAL_SCOPES,
-      redirectUri: window.location.origin + '/auth/callback.html',
-    });
-    
-    if (!result?.account) {
-      _showSSOError('No se pudo obtener la cuenta. Intenta de nuevo.');
-      return;
-    }
-
-    const account     = result.account;
-    const email       = account.username || account.idTokenClaims?.email || '';
-    const name        = account.name || account.idTokenClaims?.name || email.split('@')[0];
-    const accessToken = result.accessToken;
-
-    if (!email.endsWith('@cuam.edu.mx') && !email.endsWith('@ceam.edu.mx')) {
-      _showSSOError('Usa tu cuenta institucional (@cuam.edu.mx o @ceam.edu.mx).');
-      return;
-    }
-
-    const token = await _exchangeForSessionToken(email, name, accessToken);
-    if (!token) {
-      _showSSOError('Error al iniciar sesión. Intenta de nuevo.');
-      return;
-    }
-
-    _msalUser  = { name, email };
-    _authToken = token;
-    _role      = 'profesor';
-
-    _persistSession();
-    _updateRoleBadge();
-    if (onSuccess) await onSuccess();
-
-  } catch (err) {
-    console.error('[auth] MSAL error:', err);
-    if (err.errorCode === 'user_cancelled') {
-      _showSSOError('Inicio de sesión cancelado.');
-    } else {
-      _showSSOError('Error de autenticación. Usa PIN para continuar.');
-    }
-  }
-}
-
-// ─── Intercambio MSAL accessToken → sesión Worker ────────────────────────────
-
-async function _exchangeForSessionToken(email, name, accessToken) {
-  try {
-    const r = await fetch(`${AUTH_URL}/sso`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ email, name, accessToken }),
-    });
-    const data = await r.json();
-    return data.token || null;
-  } catch {
-    return null;
-  }
-}
-
-// ─── PIN flow — usa el keypad numérico del index.html ─────────────────────────
+// ─── PIN flow ─────────────────────────────────────────────────────────────────
 
 export function showPin(onSuccess) {
   const screen    = document.getElementById('pin-screen');
@@ -173,7 +59,6 @@ export function showPin(onSuccess) {
       if (data.token) {
         _authToken = data.token;
         _role      = data.role;
-        _msalUser  = null;
 
         _persistSession();
         _updateRoleBadge();
@@ -252,7 +137,6 @@ function _updateDots() {
 export function exitRole() {
   _authToken = null;
   _role      = null;
-  _msalUser  = null;
   _pinBuffer = '';
   sessionStorage.removeItem('vr_session');
   _updateRoleBadge();
@@ -268,7 +152,7 @@ export async function restoreSession(onRestored) {
     const saved = sessionStorage.getItem('vr_session');
     if (!saved) return;
 
-    const { token, role, msalUser } = JSON.parse(saved);
+    const { token, role } = JSON.parse(saved);
     if (!token || !role) return;
 
     const r = await fetch(`${AUTH_URL}/auth/check`, {
@@ -279,7 +163,6 @@ export async function restoreSession(onRestored) {
 
     _authToken = token;
     _role      = role;
-    _msalUser  = msalUser || null;
 
     _updateRoleBadge();
 
@@ -298,9 +181,8 @@ export async function restoreSession(onRestored) {
 
 function _persistSession() {
   sessionStorage.setItem('vr_session', JSON.stringify({
-    token:    _authToken,
-    role:     _role,
-    msalUser: _msalUser,
+    token: _authToken,
+    role:  _role,
   }));
 }
 
@@ -320,21 +202,11 @@ function _updateRoleBadge() {
   const colors = { profesor: '#065f46', coordinacion: '#7c3aed', admin: '#1e40af' };
 
   if (badge) {
-    badge.textContent = _msalUser
-      ? `${_msalUser.name.split(' ')[0]} · ${labels[_role]}`
-      : labels[_role];
+    badge.textContent      = labels[_role] || _role;
     badge.style.background = colors[_role] || '#374151';
     badge.classList.remove('hidden');
   }
 
   exitBtn?.classList.remove('hidden');
   adminBtn?.classList.add('hidden');
-}
-
-function _showSSOError(msg) {
-  const errEl = document.getElementById('auth-error');
-  if (errEl) {
-    errEl.textContent = msg;
-    errEl.classList.toggle('hidden', !msg);
-  }
 }
