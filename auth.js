@@ -1,6 +1,6 @@
 // =============================================================================
 // auth.js — VR Lab CEAM · portalvr.tech
-// Autenticación: CF Access (identidad) + PIN flow (coordinación / admin)
+// Autenticación: PIN flow (profesor / coordinación / admin)
 // =============================================================================
 
 import { AUTH_URL } from './config.js';
@@ -9,66 +9,15 @@ import { AUTH_URL } from './config.js';
 
 let _authToken = null;   // token de sesión (KV Worker)
 let _role      = null;   // 'profesor' | 'coordinacion' | 'admin'
-let _cfUser    = null;   // { name, email } desde CF Access
 let _pinBuffer = '';     // dígitos acumulados del keypad
 
 // ─── Getters públicos ─────────────────────────────────────────────────────────
 
 export const getAuthToken = () => _authToken;
 export const getRole      = () => _role;
-export const getMSALUser  = () => _cfUser;   // alias para compatibilidad con módulos existentes
+export const getMSALUser  = () => null;  // alias para compatibilidad
 
-// ─── CF Access — obtener identidad ───────────────────────────────────────────
-
-export async function initCFIdentity(onSuccess) {
-  try {
-    const r = await fetch('/cdn-cgi/access/get-identity', { credentials: 'include' });
-    if (!r.ok) return;
-
-    const identity = await r.json();
-    const email = identity.email || '';
-    const name  = identity.name  || email.split('@')[0];
-
-    if (!email) return;
-
-    // Obtener session token del Worker
-    const token = await _exchangeForSessionToken(email, name);
-    if (!token) return;
-
-    _cfUser    = { name, email };
-    _authToken = token;
-    _role      = 'profesor';
-
-    _persistSession();
-    _updateRoleBadge();
-
-    document.getElementById('auth-screen')?.classList.add('hidden');
-    document.getElementById('main-app')?.classList.remove('hidden');
-
-    if (onSuccess) await onSuccess();
-
-  } catch (err) {
-    console.warn('[auth] CF identity error:', err);
-  }
-}
-
-// ─── Intercambio identidad CF → sesión Worker ─────────────────────────────────
-
-async function _exchangeForSessionToken(email, name) {
-  try {
-    const r = await fetch(`${AUTH_URL}/sso`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ email, name }),
-    });
-    const data = await r.json();
-    return data.token || null;
-  } catch {
-    return null;
-  }
-}
-
-// ─── PIN flow — usa el keypad numérico del index.html ─────────────────────────
+// ─── PIN flow ─────────────────────────────────────────────────────────────────
 
 export function showPin(onSuccess) {
   const screen    = document.getElementById('pin-screen');
@@ -110,7 +59,6 @@ export function showPin(onSuccess) {
       if (data.token) {
         _authToken = data.token;
         _role      = data.role;
-        _cfUser    = null;
 
         _persistSession();
         _updateRoleBadge();
@@ -189,7 +137,6 @@ function _updateDots() {
 export function exitRole() {
   _authToken = null;
   _role      = null;
-  _cfUser    = null;
   _pinBuffer = '';
   sessionStorage.removeItem('vr_session');
   _updateRoleBadge();
@@ -205,7 +152,7 @@ export async function restoreSession(onRestored) {
     const saved = sessionStorage.getItem('vr_session');
     if (!saved) return;
 
-    const { token, role, msalUser } = JSON.parse(saved);
+    const { token, role } = JSON.parse(saved);
     if (!token || !role) return;
 
     const r = await fetch(`${AUTH_URL}/auth/check`, {
@@ -216,7 +163,6 @@ export async function restoreSession(onRestored) {
 
     _authToken = token;
     _role      = role;
-    _cfUser    = msalUser || null;
 
     _updateRoleBadge();
 
@@ -235,9 +181,8 @@ export async function restoreSession(onRestored) {
 
 function _persistSession() {
   sessionStorage.setItem('vr_session', JSON.stringify({
-    token:    _authToken,
-    role:     _role,
-    msalUser: _cfUser,
+    token: _authToken,
+    role:  _role,
   }));
 }
 
@@ -257,9 +202,7 @@ function _updateRoleBadge() {
   const colors = { profesor: '#065f46', coordinacion: '#7c3aed', admin: '#1e40af' };
 
   if (badge) {
-    badge.textContent = _cfUser
-      ? `${_cfUser.name.split(' ')[0]} · ${labels[_role]}`
-      : labels[_role];
+    badge.textContent      = labels[_role] || _role;
     badge.style.background = colors[_role] || '#374151';
     badge.classList.remove('hidden');
   }

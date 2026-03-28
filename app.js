@@ -12,8 +12,6 @@ import {
   getWeekBookings, getMonthBookings, getUsageRate, getTopTeachers, getBusiestDay
 } from './calendar.js';
 
-// Obtener identidad CF Access al cargar el módulo
-
 let isAdmin = false;
 let weekOff = 0;
 let currentView = 'grid';
@@ -154,8 +152,6 @@ function salirAdmin() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await auth.initCFIdentity(async () => { await enterApp(); });
-
   document.getElementById('btn-show-pin')?.addEventListener('click', (e) => {
     e.preventDefault();
     auth.showPin(async () => { await enterApp(); });
