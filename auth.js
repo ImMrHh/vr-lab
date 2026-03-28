@@ -1,6 +1,6 @@
 // =============================================================================
 // auth.js — VR Lab CEAM · portalvr.tech
-// Autenticación: PIN flow (profesor / coordinación / admin)
+// Autenticación: PASS flow (profesor / coordinación / admin)
 // =============================================================================
 
 import { AUTH_URL } from './config.js';
@@ -21,114 +21,84 @@ export const getMSALUser  = () => null;  // alias para compatibilidad
 
 export function showPin(onSuccess) {
   const screen    = document.getElementById('pin-screen');
+  const input     = document.getElementById('passphrase-input');
+  const submitBtn = document.getElementById('passphrase-submit');
   const errEl     = document.getElementById('pin-error');
   const cancelBtn = document.getElementById('btn-cancel-pin');
 
   if (!screen) { console.error('pin-screen no encontrado'); return; }
 
-  _pinBuffer = '';
-  _updateDots();
+  if (input) input.value = '';
   if (errEl) errEl.textContent = '';
 
   document.getElementById('auth-screen')?.classList.add('hidden');
   screen.classList.remove('hidden');
 
+  // Focus automático
+  setTimeout(() => input?.focus(), 100);
+
   const closePin = () => {
     document.removeEventListener('keydown', keyHandler);
     screen.classList.add('hidden');
     document.getElementById('auth-screen')?.classList.remove('hidden');
-    _pinBuffer = '';
-    _updateDots();
+    if (input) input.value = '';
     if (errEl) errEl.textContent = '';
   };
 
   const doSubmit = async () => {
-    document.removeEventListener('keydown', keyHandler);
-    const keys = document.querySelectorAll('.pin-key');
-    keys.forEach(k => k.disabled = true);
+    const passphrase = input?.value || '';
+    if (!passphrase) return;
+
+    if (submitBtn) submitBtn.disabled = true;
     if (errEl) errEl.textContent = '';
 
     try {
       const r = await fetch(`${AUTH_URL}/auth`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ pin: _pinBuffer }),
+        body:    JSON.stringify({ pin: passphrase }),
       });
       const data = await r.json();
 
       if (data.token) {
         _authToken = data.token;
         _role      = data.role;
-
         _persistSession();
         _updateRoleBadge();
         screen.classList.add('hidden');
+        document.removeEventListener('keydown', keyHandler);
         if (onSuccess) await onSuccess();
       } else {
-        if (errEl) errEl.textContent = data.error || 'PIN incorrecto';
-        _pinBuffer = '';
-        _updateDots();
-        document.addEventListener('keydown', keyHandler);
+        if (errEl) errEl.textContent = data.error || 'Contraseña incorrecta';
+        if (input) input.value = '';
+        input?.focus();
       }
     } catch {
       if (errEl) errEl.textContent = 'Error de red. Intenta de nuevo.';
-      _pinBuffer = '';
-      _updateDots();
-      document.addEventListener('keydown', keyHandler);
+      if (input) input.value = '';
+      input?.focus();
     } finally {
-      keys.forEach(k => k.disabled = false);
+      if (submitBtn) submitBtn.disabled = false;
     }
   };
 
-  const keyHandler = async (e) => {
+  const keyHandler = (e) => {
     if (e.key === 'Escape') { closePin(); return; }
-    if (e.key === 'Backspace') {
-      _pinBuffer = _pinBuffer.slice(0, -1);
-      _updateDots();
-      return;
-    }
-    if (e.key >= '0' && e.key <= '9') {
-      if (_pinBuffer.length >= 4) return;
-      _pinBuffer += e.key;
-      _updateDots();
-      if (_pinBuffer.length === 4) await doSubmit();
-    }
+    if (e.key === 'Enter')  { doSubmit(); return; }
   };
   document.addEventListener('keydown', keyHandler);
 
-  document.querySelectorAll('.pin-key').forEach(key => {
-    const fresh = key.cloneNode(true);
-    key.parentNode.replaceChild(fresh, key);
-  });
-
-  document.querySelectorAll('.pin-key').forEach(key => {
-    key.addEventListener('click', async () => {
-      const val = key.dataset.pin;
-      if (!val) return;
-      if (val === 'del') {
-        _pinBuffer = _pinBuffer.slice(0, -1);
-        _updateDots();
-        return;
-      }
-      if (_pinBuffer.length >= 4) return;
-      _pinBuffer += val;
-      _updateDots();
-      if (_pinBuffer.length === 4) await doSubmit();
-    });
-  });
+  // Clonar botones para limpiar listeners anteriores
+  const freshSubmit = submitBtn?.cloneNode(true);
+  if (freshSubmit && submitBtn) {
+    submitBtn.parentNode.replaceChild(freshSubmit, submitBtn);
+    freshSubmit.addEventListener('click', doSubmit);
+  }
 
   const freshCancel = cancelBtn?.cloneNode(true);
   if (freshCancel && cancelBtn) {
     cancelBtn.parentNode.replaceChild(freshCancel, cancelBtn);
     freshCancel.addEventListener('click', closePin);
-  }
-}
-
-// ─── Dots del keypad ──────────────────────────────────────────────────────────
-
-function _updateDots() {
-  for (let i = 0; i < 4; i++) {
-    document.getElementById(`d${i}`)?.classList.toggle('filled', i < _pinBuffer.length);
   }
 }
 

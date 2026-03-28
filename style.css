@@ -183,3 +183,61 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F8;color:var(--gray-800);m
 .btn-danger:hover{background:#b91c1c;border-color:#b91c1c}
 [data-theme="dark"] .confirm-modal{background:#1A1D27}
 [data-theme="dark"] .btn-danger:hover{background:#c91c1c;border-color:#c91c1c}
+/* Brand logo */
+.brand-logo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Passphrase input */
+.passphrase-input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-family: 'DM Sans', sans-serif;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: white;
+  color: var(--gray-800);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 4px;
+}
+.passphrase-input:focus {
+  border-color: var(--green);
+}
+
+[data-theme="dark"] .passphrase-input {
+  background: #252836;
+  border-color: var(--gray-200);
+  color: var(--gray-800);
+}
+
+/* ── Mobile responsive ───────────────────────────────────────── */
+@media (max-width: 600px) {
+
+  /* Topbar */
+  .topbar { padding: 0 12px; gap: 8px; }
+  .brand-logo { height: 28px; }
+  .brand-title { font-size: 13px; }
+  .brand-sub { font-size: 10px; }
+  .btn-sm { padding: 4px 8px; font-size: 11px; }
+  .badge-admin { font-size: 10px; padding: 3px 7px; }
+
+  /* Week nav */
+  .week-nav { flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .week-label { width: 100%; text-align: center; font-size: 14px; order: -1; }
+
+  /* Grid — scroll horizontal contenido, no toda la página */
+  .container { padding: 12px 8px; }
+  .card { padding: 12px; }
+  .grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .grid { min-width: 480px; }
+  body { overflow-x: hidden; }
+
+  /* Tabs */
+  .view-tabs { flex-wrap: wrap; }
+  .tab { flex: 1; min-width: 80px; text-align: center; font-size: 11px; padding: 6px 4px; }
+}
