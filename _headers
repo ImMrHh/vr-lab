@@ -4,7 +4,6 @@ https://portalvr.tech/*
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   Cross-Origin-Opener-Policy: unsafe-none
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://vr-lab-proxy.htrejo.workers.dev https://vr-lab-auth.htrejo.workers.dev https://6z5fznmp4m.workers.dev https://cloudflareinsights.com; img-src 'self' data:; frame-ancestors 'none';
-/sw.js
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://vr-lab-proxy.6z5fznmp4m.workers.dev https://vr-lab-auth.6z5fznmp4m.workers.dev https://cloudflareinsights.com; img-src 'self' data:; frame-ancestors 'none';
   Cache-Control: no-store, no-cache, must-revalidate
   Content-Security-Policy: default-src 'self';
