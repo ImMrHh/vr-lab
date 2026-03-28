@@ -1,13 +1,11 @@
-/*
+https://portalvr.tech/*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   Cross-Origin-Opener-Policy: unsafe-none
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' https://vr-lab-proxy.htrejo.workers.dev https://vr-lab-auth.htrejo.workers.dev https://vr-lab-proxy.6z5fznmp4m.workers.dev https://vr-lab-auth.6z5fznmp4m.workers.dev https://login.microsoftonline.com https://login.windows.net https://*.login.microsoftonline.com https://graph.microsoft.com;
-
-/auth/callback.html
-  Cross-Origin-Opener-Policy: unsafe-none
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://vr-lab-proxy.htrejo.workers.dev https://vr-lab-auth.htrejo.workers.dev https://6z5fznmp4m.workers.dev https://login.microsoftonline.com https://graph.microsoft.com; img-src 'self' data:; frame-ancestors 'none';
 
 /sw.js
   Cache-Control: no-store, no-cache, must-revalidate
+  Content-Security-Policy: default-src 'self';
