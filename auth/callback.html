@@ -1,39 +1,112 @@
 <!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Auth callback</title></head>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Auth callback</title>
+</head>
 <body>
 <script src="/msal-browser.min.js"></script>
 <script>
+/*
+  callback.html para portalvr.tech
+  - Procesa el redirect con MSAL (handleRedirectPromise)
+  - Envía un postMessage al opener con el resultado
+  - Intenta cerrar la ventana
+  - Logs para depuración
+*/
+
+(function () {
+  const CLIENT_ID = '656b2863-b415-478d-875a-bc96cd132f00';
+  const TENANT_AUTH = 'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6';
+  const REDIRECT_URI = window.location.origin + '/auth/callback.html';
+
   const msalApp = new msal.PublicClientApplication({
     auth: {
-      clientId: '656b2863-b415-478d-875a-bc96cd132f00',
-      authority: 'https://login.microsoftonline.com/8cef89d5-ca02-46a1-8397-b9c461acb2e6',
-      redirectUri: window.location.origin + '/auth/callback.html'
+      clientId: CLIENT_ID,
+      authority: TENANT_AUTH,
+      redirectUri: REDIRECT_URI
     },
-    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+    cache: {
+      cacheLocation: 'localStorage',
+      storeAuthStateInCookie: true
+    }
   });
 
+  function safePostMessage(payload) {
+    // Intentamos enviar con targetOrigin estricto (recomendado en producción).
+    // Si falla por políticas, hacemos fallback a '*' (solo como fallback).
+    try {
+      const target = window.location.origin;
+      console.log('[callback] intentando postMessage con targetOrigin =', target);
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(payload, target);
+        console.log('[callback] postMessage enviado con targetOrigin estricto');
+        return true;
+      } else {
+        console.warn('[callback] window.opener no existe o está cerrado');
+      }
+    } catch (err) {
+      console.warn('[callback] postMessage con targetOrigin estricto falló:', err);
+    }
+
+    // Fallback: intentar con '*'
+    try {
+      if (window.opener && !window.opener.closed) {
+        console.log('[callback] intentando postMessage con targetOrigin = "*" (fallback)');
+        window.opener.postMessage(payload, '*');
+        console.log('[callback] postMessage enviado con "*"');
+        return true;
+      }
+    } catch (err) {
+      console.error('[callback] postMessage fallback falló:', err);
+    }
+
+    return false;
+  }
+
+  function finishAndClose() {
+    // Intento de cerrar la ventana; algunos navegadores bloquean window.close()
+    try {
+      window.close();
+      console.log('[callback] window.close() llamado');
+    } catch (e) {
+      console.warn('[callback] window.close() falló', e);
+    }
+    // Si no se cierra, mostramos un mensaje mínimo para que el usuario pueda cerrar manualmente.
+    // (No mostramos UI compleja para mantener el callback ligero.)
+  }
+
+  // Ejecutar el handler de MSAL
   msalApp.handleRedirectPromise()
     .then((response) => {
+      console.log('[callback] handleRedirectPromise resolved:', response);
       const payload = { type: 'msal:auth:complete', response: response || null };
-      try {
-        if (window.opener && !window.opener.closed) {
-          // targetOrigin usa el origen de la ventana padre si lo conoces; usa '*' solo para pruebas
-          window.opener.postMessage(payload, window.location.origin);
-        }
-      } catch (e) {
-        // si postMessage falla por políticas, lo registramos
-        console.error('postMessage failed', e);
-      } finally {
-        // Intentamos cerrar la ventana; si está bloqueado, la página puede mostrar un mensaje
-        try { window.close(); } catch (e) { /* noop */ }
+
+      const posted = safePostMessage(payload);
+      if (!posted) {
+        console.warn('[callback] No se pudo enviar postMessage al opener. Revisa COOP/noopener.');
       }
+
+      finishAndClose();
     })
-    .catch(err => {
-      console.error('Callback error:', err);
-      try { window.opener.postMessage({ type: 'msal:auth:error', error: String(err) }, window.location.origin); } catch(e){}
-      try { window.close(); } catch(e){}
+    .catch((err) => {
+      console.error('[callback] handleRedirectPromise error:', err);
+      const payload = { type: 'msal:auth:error', error: String(err) };
+
+      try {
+        safePostMessage(payload);
+      } catch (e) {
+        console.error('[callback] error al intentar postMessage en catch:', e);
+      }
+
+      finishAndClose();
     });
+
+  // Para depuración adicional: mostrar en consola si opener existe al cargar la página
+  console.log('[callback] inicio. redirectUri =', REDIRECT_URI);
+  console.log('[callback] opener exists?', !!window.opener, window.opener);
+})();
 </script>
 </body>
 </html>
