@@ -37,18 +37,24 @@ function getMSALConfig() {
 }
 
 // ─── Pre-inicializar MSAL al cargar el módulo ─────────────────────────────────
-// Se hace aquí (fuera de cualquier handler) para que cuando el usuario presione
-// el botón, loginPopup() se llame en el mismo tick del evento — sin awaits previos
-// que rompan la cadena de confianza del navegador y activen el bloqueador de popups.
 
 export async function initMSAL() {
   if (typeof msal === 'undefined') return;
   try {
     _msalApp = new msal.PublicClientApplication(getMSALConfig());
     await _msalApp.initialize();
-    // NO llamamos handleRedirectPromise() aquí — no usamos redirect flow,
-    // solo popup, y handleRedirectPromise() en la ventana principal interfiere
-    // con el cierre del popup en algunos navegadores.
+
+    // Listener para logging/diagnóstico del popup callback
+    window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'msal:auth:complete') {
+        console.log('[auth] mensaje recibido del callback:', event.data.response);
+      }
+      if (event.data?.type === 'msal:auth:error') {
+        console.warn('[auth] error del callback:', event.data.error);
+      }
+    });
+
   } catch (err) {
     console.warn('MSAL init error:', err);
     _msalApp = null;
@@ -66,8 +72,11 @@ export async function msalLogin(onSuccess) {
   }
 
   try {
-    // loginPopup se llama directamente — sin awaits previos desde el evento de click
-    const result = await _msalApp.loginPopup({ scopes: MSAL_SCOPES });
+    // redirectUri explícito en loginPopup() — requerido en MSAL v2 para popup flow
+    const result = await _msalApp.loginPopup({
+      scopes:      MSAL_SCOPES,
+      redirectUri: window.location.origin + '/auth/callback.html',
+    });
 
     if (!result?.account) {
       _showSSOError('No se pudo obtener la cuenta. Intenta de nuevo.');
