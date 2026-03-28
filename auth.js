@@ -32,7 +32,7 @@ function getMSALConfig() {
       authority:   `https://login.microsoftonline.com/${MSAL_TENANT_ID}`,
       redirectUri: window.location.origin + '/auth/callback.html',
     },
-    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
+    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
   };
 }
 
