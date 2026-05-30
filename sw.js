@@ -19,14 +19,18 @@ self.addEventListener('fetch',e=>{
   const url=e.request.url;
   let parsed;
   try{parsed=new URL(url);}catch(err){return;}
+
+  // Never intercept font requests
   if(parsed.hostname==='fonts.googleapis.com'||parsed.hostname==='fonts.gstatic.com')return;
-  if(parsed.hostname.endsWith('vr-lab-proxy.6z5fznmp4m.workers.dev')){
-    e.respondWith(
-      fetch(e.request).catch(()=>caches.match(e.request))
-    );
+
+  // Pass through ALL external requests (workers, analytics, etc.)
+  if(parsed.origin!==self.location.origin){
+    e.respondWith(fetch(e.request));
     return;
   }
-  if(e.request.method==='GET'&&new URL(url).origin===self.location.origin){
+
+  // Cache-first for local static assets (GET only)
+  if(e.request.method==='GET'){
     e.respondWith(
       fetch(e.request).then(res=>{
         if(res&&res.status===200){
