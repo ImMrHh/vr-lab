@@ -1,4 +1,4 @@
-const CACHE_NAME='vr-lab-v3';
+const CACHE_NAME='vr-lab-v2';
 const STATIC_ASSETS=['index.html','app.js','style.css','manifest.json','icon.svg'];
 
 self.addEventListener('install',e=>{
@@ -20,10 +20,7 @@ self.addEventListener('fetch',e=>{
   let parsed;
   try{parsed=new URL(url);}catch(err){return;}
   if(parsed.hostname==='fonts.googleapis.com'||parsed.hostname==='fonts.gstatic.com')return;
-  if(
-    parsed.hostname.endsWith('vr-lab-proxy.6z5fznmp4m.workers.dev')||
-    parsed.hostname.endsWith('vr-lab-auth.6z5fznmp4m.workers.dev')
-  ){
+  if(parsed.hostname.endsWith('vr-lab-proxy.6z5fznmp4m.workers.dev')){
     e.respondWith(
       fetch(e.request).catch(()=>caches.match(e.request))
     );
