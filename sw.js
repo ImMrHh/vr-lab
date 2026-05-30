@@ -1,4 +1,4 @@
-const CACHE_NAME='vr-lab-v2';
+const CACHE_NAME='vr-lab-v3';
 const STATIC_ASSETS=['index.html','app.js','style.css','manifest.json','icon.svg'];
 
 self.addEventListener('install',e=>{
