@@ -20,7 +20,10 @@ self.addEventListener('fetch',e=>{
   let parsed;
   try{parsed=new URL(url);}catch(err){return;}
   if(parsed.hostname==='fonts.googleapis.com'||parsed.hostname==='fonts.gstatic.com')return;
-  if(parsed.hostname.endsWith('vr-lab-proxy.6z5fznmp4m.workers.dev')){
+  if(
+    parsed.hostname.endsWith('vr-lab-proxy.6z5fznmp4m.workers.dev')||
+    parsed.hostname.endsWith('vr-lab-auth.6z5fznmp4m.workers.dev')
+  ){
     e.respondWith(
       fetch(e.request).catch(()=>caches.match(e.request))
     );
