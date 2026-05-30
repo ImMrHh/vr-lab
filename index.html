@@ -185,6 +185,6 @@
 <div class="toast" id="toast"></div>
 
 <script type="module" src="app.js"></script>
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(regs=>{regs.forEach(r=>r.unregister())});}</script>
 </body>
 </html>
