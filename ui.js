@@ -122,12 +122,31 @@ export function renderGrid({
       const booked = bookings[key];
       const blocked = Object.prototype.hasOwnProperty.call(mBlocked, key);
 
+      const isCoord = (role === 'coordinacion' || role === 'admin');
+
       if (hol) {
         cell.className = 'slot slot-holiday';
         cell.title = 'Día no hábil';
       } else if (teaching) {
-        cell.className = 'slot slot-teaching';
-        cell.innerHTML = `<span class="s-text">No disponible</span>`;
+        if (isCoord) {
+          // Coordinator override: slot propio pero reservable por coordinación/admin
+          if (booked) {
+            // Ya tiene reserva coordinador — mostrar con opción de cancelar
+            const b = booked;
+            cell.className = 'slot slot-coord-booked admin';
+            cell.innerHTML = `<span class="s-text">${esc(b.grupo)} · ${esc(b.materia)}</span><span class="s-sub">${esc(b.profesor)}</span>`;
+            cell.title = `${esc(b.profesor)} · ${esc(b.grupo)} · ${esc(b.materia)}\nClic para cancelar`;
+            cell.onclick = () => doCancel(key, b);
+          } else {
+            cell.className = 'slot slot-coord-override admin';
+            cell.innerHTML = `<span class="s-text">🔓</span>`;
+            cell.title = 'Slot de coordinación — clic para reservar';
+            cell.onclick = () => openModal(weekOff, di, row.label, row.time, key, { isOverride: true });
+          }
+        } else {
+          cell.className = 'slot slot-teaching';
+          cell.innerHTML = `<span class="s-text">No disponible</span>`;
+        }
       } else if (blocked) {
         cell.className = 'slot slot-blocked' + (isAdmin ? ' admin' : '');
         cell.innerHTML = `<span class="s-text">Bloqueado</span>`;
@@ -137,17 +156,27 @@ export function renderGrid({
         }
       } else if (booked) {
         const b = booked;
-        const canCancel = (role === 'coordinacion' || role === 'admin');
+        const canCancel = isCoord;
         cell.className = 'slot slot-booked' + (canCancel ? ' admin' : '');
-        cell.innerHTML = `<span class="s-text">${esc(b.grupo)} · ${esc(b.materia)}</span><span class="s-sub">${esc(b.profesor)}</span>`;
+        // Badge retro si el slot es pasado
+        const retroBadge = (past || pastEnd) ? `<span class="s-retro">retro</span>` : '';
+        cell.innerHTML = `<span class="s-text">${esc(b.grupo)} · ${esc(b.materia)}</span><span class="s-sub">${esc(b.profesor)}${retroBadge}</span>`;
         cell.title = `${esc(b.profesor)} · ${esc(b.grupo)} · ${esc(b.materia)}${canCancel ? '\nClic para cancelar' : ''}`;
         if (canCancel) cell.onclick = () => doCancel(key, b);
       } else if (past || pastEnd) {
-        cell.className = 'slot slot-past';
-        cell.innerHTML = `<span class="s-text" style="color:var(--gray-400);font-weight:400;font-size:10px">—</span>`;
-        cell.title = past ? 'Periodo pasado' : 'Fuera del ciclo escolar';
+        if (isCoord) {
+          // Coordinación/admin pueden registrar sesiones retroactivas
+          cell.className = 'slot slot-past-coord admin';
+          cell.innerHTML = `<span class="s-text" style="font-size:16px;opacity:0.5">+</span>`;
+          cell.title = 'Registrar sesión retroactiva';
+          cell.onclick = () => openModal(weekOff, di, row.label, row.time, key, { isRetro: true });
+        } else {
+          cell.className = 'slot slot-past';
+          cell.innerHTML = `<span class="s-text" style="color:var(--gray-400);font-weight:400;font-size:10px">—</span>`;
+          cell.title = past ? 'Periodo pasado' : 'Fuera del ciclo escolar';
+        }
       } else {
-        const canBook = (role === 'profesor' || role === 'coordinacion' || role === 'admin');
+        const canBook = (role === 'profesor' || isCoord);
         cell.className = 'slot slot-free' + (canBook ? ' admin' : '');
         if (canBook) {
           cell.innerHTML = `<span style="font-size:18px;color:var(--gray-200)">+</span>`;

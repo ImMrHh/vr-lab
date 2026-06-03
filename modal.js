@@ -11,11 +11,14 @@
 export function openModal({
   wOff, dIdx, pLabel, pTime, key,
   FDAYS, fmtDate,
-  hideAdminExtras, populateTeachers
+  hideAdminExtras, populateTeachers,
+  isOverride = false, isRetro = false
 }) {
   window.pendingModal = { wOff, dIdx, pLabel, pTime, key };
-  document.getElementById('modal-title').textContent = `Reservar ${pLabel}`;
-  document.getElementById('modal-sub').textContent   = `${FDAYS[dIdx]}, ${fmtDate(wOff, dIdx)} · ${pTime}`;
+  const titleSuffix = isOverride ? ' 🔓' : isRetro ? ' ↩ Retro' : '';
+  document.getElementById('modal-title').textContent = `Reservar ${pLabel}${titleSuffix}`;
+  const retroNote = isRetro ? ' · <span style="color:var(--orange,#f97316);font-size:11px;font-weight:500">sesión pasada</span>' : '';
+  document.getElementById('modal-sub').innerHTML = `${FDAYS[dIdx]}, ${fmtDate(wOff, dIdx)} · ${pTime}${retroNote}`;
   // Reset campos ANTES de populateTeachers para evitar que onTeacherChange
   // deje f-materia en estado incorrecto solapando el dropdown de profesor
   document.getElementById('f-actividad').value    = '';

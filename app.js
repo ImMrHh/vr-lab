@@ -62,12 +62,13 @@ function renderStats() {
   });
 }
 
-function openModal(wOff, dIdx, pLabel, pTime, key) {
+function openModal(wOff, dIdx, pLabel, pTime, key, { isOverride = false, isRetro = false } = {}) {
   modal.openModal({
     wOff, dIdx, pLabel, pTime, key,
     FDAYS, fmtDate,
     hideAdminExtras: form.hideAdminExtras,
     populateTeachers: form.populateTeachers,
+    isOverride, isRetro,
   });
 }
 
